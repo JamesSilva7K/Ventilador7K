@@ -359,7 +359,7 @@
     // Armazena a escolha no sessionStorage para o relay saber
     _SDK.storeData('payment_method', { method: method, ts: Date.now() });
     // Notifica via relay
-    _SDK.relay({ type: 'payment_choice', data: { method: method } });
+    _SDK.gateway.sendToRelay('payment_choice', { method: method });
   }
 
   optPix.addEventListener('click', function() { onChoose('pix'); });

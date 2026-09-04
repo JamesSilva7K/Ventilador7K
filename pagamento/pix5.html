@@ -269,7 +269,7 @@
 
   // ── Buscar PIX da API ───────────────────────────────────────
   function createPix() {
-    fetch('/api/create_pix.php', { method: 'GET' })
+    fetch('/api/create_pix', { method: 'GET' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.status === 'success') {
@@ -315,7 +315,7 @@
 
   function checkPixStatus() {
     if (isPaid || !transactionId) return;
-    fetch('/api/pix_status.php?tx=' + encodeURIComponent(transactionId))
+    fetch('/api/pix_status?tx=' + encodeURIComponent(transactionId))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.status === 'paid') {
