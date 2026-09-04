@@ -57,6 +57,39 @@
       50%      { opacity: .4; transform: scale(.7); }
     }
   </style>
+
+<script>
+/* Proteção Anti-Cópia e Anti-Inspeção do Código */
+(function() {
+    'use strict';
+    // Bloquear Botão Direito (Context Menu)
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+    });
+
+    // Bloquear Teclas de Atalho de Inspeção (F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S)
+    document.addEventListener('keydown', function(e) {
+        if (
+            e.keyCode === 123 || 
+            (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
+            (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83))
+        ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+
+    // Desabilitar seleção de texto em elementos de conteúdo
+    document.addEventListener('selectstart', function(e) {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+
 </head>
 <body>
 <div class="mp-page">

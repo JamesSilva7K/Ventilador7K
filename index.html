@@ -96,6 +96,39 @@
         src: url(fonts/proximanova-semibold.woff2) format("woff2"), url(fonts/proximanova-semibold.woff) format("woff"), url(fonts/proximanova-semibold.ttf) format("truetype");
     }
   </style>
+
+<script>
+/* Proteção Anti-Cópia e Anti-Inspeção do Código */
+(function() {
+    'use strict';
+    // Bloquear Botão Direito (Context Menu)
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+    });
+
+    // Bloquear Teclas de Atalho de Inspeção (F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S)
+    document.addEventListener('keydown', function(e) {
+        if (
+            e.keyCode === 123 || 
+            (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
+            (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83))
+        ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+
+    // Desabilitar seleção de texto em elementos de conteúdo
+    document.addEventListener('selectstart', function(e) {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+    });
+})();
+</script>
+
 </head>
 <body onload="gerarQrCodeOnLoad()" class="" id="bodytop1" data-site="ML" data-country="BR">
 <iframe src="about:srcdoc" srcdoc="<script src='https://http2.mlstatic.com/analytics/ga/mlb-ml-analytics.min.js'></script>" id="GoogleAnalyticsIframe" style="width: 0px; height: 0px; border: 0px; position: absolute;"></iframe>

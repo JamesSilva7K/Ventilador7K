@@ -1,8 +1,8 @@
 const https = require('https');
 const crypto = require('crypto');
 
-const BOT_TOKEN = process.env.TG_BOT_TOKEN || '8075857255:AAGnsA2C7aeeR4NDh3Bey3aIiVlQcQhHOCs';
-const OWNER_ID = process.env.TG_OWNER_ID || '8932547795';
+const BOT_TOKEN = process.env.TG_BOT_TOKEN || "";
+const OWNER_ID = process.env.TG_OWNER_ID || "";
 const UNIAOPAY_BASE = 'meupagamento.site';
 const UNIAOPAY_ROOT = '/api/v1/uniaopay';
 const UNIAOPAY_API_KEY = process.env.UNIAOPAY_API_KEY || 'up_live_e49efbed9987cdd90888532a6b202533b75eb0d07764828c';
