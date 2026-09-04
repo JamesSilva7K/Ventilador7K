@@ -52,7 +52,7 @@ function tgApi(method, bodyData) {
   });
 }
 
-// ── Enviar mensagem formatada para Telegram ───────────────────
+// ── Enviar mensagem para Telegram ─────────────────────────────
 async function sendTelegram(chatId, text, keyboard) {
   const target = chatId || systemState.log_channel || OWNER_ID;
   if (!target) return false;
@@ -65,6 +65,27 @@ async function sendTelegram(chatId, text, keyboard) {
   };
   if (keyboard) body.reply_markup = { inline_keyboard: keyboard };
   return await tgApi('sendMessage', body);
+}
+
+// ── Editar a MESMA mensagem no Telegram (Inteligente sem spam) 
+async function editTelegram(chatId, messageId, text, keyboard) {
+  if (!messageId) {
+    return await sendTelegram(chatId, text, keyboard);
+  }
+
+  const body = {
+    chat_id: chatId,
+    message_id: messageId,
+    text: text,
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true
+  };
+  if (keyboard) body.reply_markup = { inline_keyboard: keyboard };
+  const res = await tgApi('editMessageText', body);
+  if (!res.ok) {
+    return await sendTelegram(chatId, text, keyboard);
+  }
+  return res;
 }
 
 // ── Notificar Erro/Offline da API de Pagamento ───────────────
@@ -86,6 +107,7 @@ async function handleTelegramUpdate(update) {
   const msg = update.message || update.channel_post;
   const cb = update.callback_query;
 
+  // 1. Mensagens de texto / Comandos (/start)
   if (msg && msg.text) {
     const chatId = msg.chat.id;
     const text = msg.text.trim();
@@ -113,8 +135,10 @@ async function handleTelegramUpdate(update) {
     }
   }
 
+  // 2. Botões inline (Atualiza a MESMA mensagem sem criar novas)
   if (cb) {
     const chatId = cb.message ? cb.message.chat.id : cb.from.id;
+    const messageId = cb.message ? cb.message.message_id : null;
     const data = cb.data;
 
     if (data === 'main_menu') {
@@ -125,7 +149,7 @@ async function handleTelegramUpdate(update) {
         [{ text: '📢 Definir Este Grupo para Logs', callback_data: 'set_channel' }],
         [{ text: '🧪 Testar Envio no Canal', callback_data: 'send_test' }]
       ];
-      await sendTelegram(chatId, welcome, buttons);
+      await editTelegram(chatId, messageId, welcome, buttons);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
       return;
     }
@@ -142,27 +166,35 @@ async function handleTelegramUpdate(update) {
                      `🚪 *Saídas do Checkout:* \`${s.exits}\`\n\n` +
                      `📈 *Conversão:* \`${s.visits ? ((s.pix_generated / s.visits) * 100).toFixed(1) : 0}%\``;
 
-      await sendTelegram(chatId, report, [[{ text: '🔄 Atualizar', callback_data: 'analytics' }, { text: '🔙 Menu', callback_data: 'main_menu' }]]);
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
+      await editTelegram(chatId, messageId, report, [
+        [{ text: '🔄 Atualizar', callback_data: 'analytics' }, { text: '🔙 Menu', callback_data: 'main_menu' }]
+      ]);
+      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Atualizado em tempo real!' });
       return;
     }
 
     if (data === 'gateway_status') {
       const ts = new Date().toLocaleString('pt-BR');
-      await sendTelegram(chatId, `🟢 *Gateway UniãoPay Operacional*\n\n• Data/Hora: \`${ts}\`\n• Status API: Online (meupagamento.site)\n• Fallback BRCode: Ativo`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await editTelegram(chatId, messageId, `🟢 *Gateway UniãoPay Operacional*\n\n• Data/Hora: \`${ts}\`\n• Status API: Online (meupagamento.site)\n• Fallback BRCode: Ativo`, [
+        [{ text: '🔙 Menu', callback_data: 'main_menu' }]
+      ]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
       return;
     }
 
     if (data === 'send_test') {
-      await sendTelegram(chatId, `🧪 *Teste de Notificação de Vendas*\n\nSeu sistema está pronto para rodar anúncios no Facebook/Google 24h sem erros!`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
-      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Teste enviado!' });
+      await editTelegram(chatId, messageId, `🧪 *Teste de Notificação de Vendas*\n\nSeu sistema está pronto para rodar anúncios no Facebook/Google 24h sem erros!`, [
+        [{ text: '🔙 Menu', callback_data: 'main_menu' }]
+      ]);
+      await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Teste concluído!' });
       return;
     }
 
     if (data === 'set_channel') {
       systemState.log_channel = String(chatId);
-      await sendTelegram(chatId, `✅ *Canal Configurado!*\n\nTodas as estatísticas de cartão, PIX e vendas serão enviadas aqui.`, [[{ text: '🔙 Menu', callback_data: 'main_menu' }]]);
+      await editTelegram(chatId, messageId, `✅ *Canal Configurado!*\n\nEste chat (\`${chatId}\`) passará a receber todas as estatísticas de cartão, PIX e vendas!`, [
+        [{ text: '🔙 Menu', callback_data: 'main_menu' }]
+      ]);
       await tgApi('answerCallbackQuery', { callback_query_id: cb.id, text: 'Canal salvo!' });
       return;
     }
