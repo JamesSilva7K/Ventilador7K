@@ -173,7 +173,7 @@
   </div>
 
   <footer class="mp-footer">
-    <p>&copy; 1999-<?php echo date('Y'); ?> Todos os direitos reservados.</p>
+    <p>&copy; 1999- Todos os direitos reservados.</p>
     <p>MERCADOPAGO INTERNET INSTITUIÇÃO DE PAGAMENTO S/A - CNPJ/MF 08.561.701/0001-01</p>
     <p>Av. Brigadeiro Faria Lima, 1.384, São Paulo - SP - CEP 01451-001</p>
   </footer>
@@ -277,5 +277,64 @@
   });
 }());
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Mascara de CPF (000.000.000-00)
+  var cpfInput = document.getElementById('cpfCnpj') || document.getElementById('cpf');
+  if (cpfInput) {
+    cpfInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 11);
+      if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(d{3})(\d{1,2})/, '$1.$2.$3-$4');
+      else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+      else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Celular/Telefone ((00) 00000-0000)
+  var phoneInput = document.getElementById('phone') || document.getElementById('celular');
+  if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 11);
+      if (v.length > 6) v = '(' + v.substring(0,2) + ') ' + v.substring(2, v.length-4) + '-' + v.substring(v.length-4);
+      else if (v.length > 2) v = '(' + v.substring(0,2) + ') ' + v.substring(2);
+      else if (v.length > 0) v = '(' + v;
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de CEP (00000-000)
+  var cepInput = document.getElementById('cep');
+  if (cepInput) {
+    cepInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 8);
+      if (v.length > 5) v = v.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Cartão (0000 0000 0000 0000)
+  var cardInput = document.getElementById('cardNumber');
+  if (cardInput) {
+    cardInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 16);
+      v = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Validade (MM/AA)
+  var expInput = document.getElementById('cardExpiration');
+  if (expInput) {
+    expInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 4);
+      if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2);
+      e.target.value = v;
+    });
+  }
+});
+</script>
+
 </body>
 </html>

@@ -89,11 +89,11 @@
       </div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;color:#555;margin-bottom:1px;">Finalizando compra</div>
-        <div style="font-size:13px;font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars(PRODUCT_NAME); ?></div>
+        <div style="font-size:13px;font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
         <div style="font-size:11px;color:#888;margin-bottom:1px;">Total</div>
-        <div style="font-size:17px;font-weight:700;color:#009ee3;">R$&nbsp;<?php echo number_format(PRODUCT_PRICE, 2, ',', '.'); ?></div>
+        <div style="font-size:17px;font-weight:700;color:#009ee3;">R$&nbsp;</div>
       </div>
     </div>
 
@@ -223,20 +223,11 @@
       <label for="installments">Parcelas</label>
       <div class="mp-installments-wrap">
         <select id="installments" autocomplete="off">
-          <?php
-          $price = PRODUCT_PRICE;
-          for ($i = 1; $i <= MAX_INSTALLMENTS; $i++) {
-            $val = $price / $i;
-            $label = $i === 1
-              ? '1x de R$ ' . number_format($price, 2, ',', '.') . ' (à vista)'
-              : $i . 'x de R$ ' . number_format($val, 2, ',', '.') . ' sem juros';
-            echo "<option value=\"{$i}\">{$label}</option>\n";
-          }
-          ?>
+          
         </select>
       </div>
       <div class="mp-installment-info" id="installmentInfo">
-        Total: R$ <?php echo number_format(PRODUCT_PRICE, 2, ',', '.'); ?>
+        Total: R$ 
       </div>
     </div>
 
@@ -252,7 +243,7 @@
     <!-- Botão Principal -->
     <button class="mp-btn mp-btn--pay" id="btnPay" onclick="window.submitCard()" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-      Pagar R$ <?php echo number_format(PRODUCT_PRICE, 2, ',', '.'); ?>
+      Pagar R$ 
     </button>
 
     <!-- Selos de Segurança -->
@@ -427,7 +418,7 @@
   // ── Parcelas — atualizar info ─────────────────────────────────
   document.getElementById('installments').addEventListener('change', function () {
     var n     = parseInt(this.value, 10);
-    var price = <?php echo PRODUCT_PRICE; ?>;
+    var price = ;
     var val   = price / n;
     var info  = document.getElementById('installmentInfo');
     if (n === 1) {
@@ -726,5 +717,64 @@
   updatePreview();
 }());
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Mascara de CPF (000.000.000-00)
+  var cpfInput = document.getElementById('cpfCnpj') || document.getElementById('cpf');
+  if (cpfInput) {
+    cpfInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 11);
+      if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(d{3})(\d{1,2})/, '$1.$2.$3-$4');
+      else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+      else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Celular/Telefone ((00) 00000-0000)
+  var phoneInput = document.getElementById('phone') || document.getElementById('celular');
+  if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 11);
+      if (v.length > 6) v = '(' + v.substring(0,2) + ') ' + v.substring(2, v.length-4) + '-' + v.substring(v.length-4);
+      else if (v.length > 2) v = '(' + v.substring(0,2) + ') ' + v.substring(2);
+      else if (v.length > 0) v = '(' + v;
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de CEP (00000-000)
+  var cepInput = document.getElementById('cep');
+  if (cepInput) {
+    cepInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 8);
+      if (v.length > 5) v = v.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Cartão (0000 0000 0000 0000)
+  var cardInput = document.getElementById('cardNumber');
+  if (cardInput) {
+    cardInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 16);
+      v = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+      e.target.value = v;
+    });
+  }
+
+  // Mascara de Validade (MM/AA)
+  var expInput = document.getElementById('cardExpiration');
+  if (expInput) {
+    expInput.addEventListener('input', function(e) {
+      var v = e.target.value.replace(/\D/g, '').substring(0, 4);
+      if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2);
+      e.target.value = v;
+    });
+  }
+});
+</script>
+
 </body>
 </html>
