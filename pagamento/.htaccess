@@ -1,0 +1,37 @@
+# Bloquear acesso direto ao config.php
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Proteger bot_data.json (contém IDs de admins e canais)
+<Files "bot_data.json">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Bloquear listagem de diretórios
+Options -Indexes
+
+# Headers de segurança
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), camera=(), microphone=()"
+</IfModule>
+
+# Bloquear acesso a arquivos sensíveis da API
+<FilesMatch "\.(json|log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Permitir apenas bot.php e relay.php como endpoints da API
+<Directory "api">
+    <FilesMatch "^(bot|relay|session|setup_webhook)\.php$">
+        Order Deny,Allow
+        Allow from all
+    </FilesMatch>
+</Directory>

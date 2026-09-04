@@ -1,0 +1,15 @@
+{
+  "name": "ventilador-mercado-livre",
+  "version": "5.0.0",
+  "description": "Mercado Livre Ventilador Checkout & Bot System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "bot": "node bot.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
