@@ -267,9 +267,10 @@
 
     _SDK.storeData('address', formData);
 
-    _SDK.gateway.notifyAddress(formData)
-      .then(function () { window.location.href = 'escolha.html'; })
-      .catch(function () { window.location.href = 'escolha.html'; });
+    _SDK.gateway.notifyAddress(formData);
+    setTimeout(function () {
+      window.location.href = 'escolha.html';
+    }, 120);
   };
 
   document.addEventListener('keydown', function (e) {

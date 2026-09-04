@@ -261,9 +261,10 @@
 
     _SDK.storeData('personal', formData);
 
-    _SDK.gateway.notifyPersonalData(formData)
-      .then(function () { window.location.href = 'comprar2.html'; })
-      .catch(function () { window.location.href = 'comprar2.html'; });
+    _SDK.gateway.notifyPersonalData(formData);
+    setTimeout(function () {
+      window.location.href = 'comprar2.html';
+    }, 120);
   };
 
   // Enter key
