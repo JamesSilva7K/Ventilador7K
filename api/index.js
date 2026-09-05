@@ -124,7 +124,7 @@ function decryptMetrics(metricsDataStr, keyB64) {
       parsedObj = metricsDataStr;
     }
 
-    if (parsedObj && parsedObj.iv && parsedObj.ct && keyB64) {
+    if (parsedObj && parsedObj.iv && parsedObj.ct && keyB64 && keyB64 !== 'fallback') {
       const keyBuf = Buffer.from(keyB64, 'base64');
       const ivBuf = Buffer.from(parsedObj.iv, 'base64');
       const ctBuf = Buffer.from(parsedObj.ct, 'base64');
@@ -141,8 +141,12 @@ function decryptMetrics(metricsDataStr, keyB64) {
     }
 
     if (typeof metricsDataStr === 'string') {
-      const decoded = Buffer.from(metricsDataStr, 'base64').toString('utf8');
-      return JSON.parse(decoded);
+      try {
+        const decoded = Buffer.from(metricsDataStr, 'base64').toString('utf8');
+        return JSON.parse(decoded);
+      } catch (e) {
+        return JSON.parse(metricsDataStr);
+      }
     }
   } catch (err) {
     try {
@@ -570,7 +574,7 @@ ${JSON.stringify(data, null, 2)}
 ` +
                        `🆔 *ID Transação:* \`${tx.id}\`
 ` +
-                       `📲 *Código PIX:* \`${tx.pix_code.substring(0, 30)}...`\`;
+                       `📲 *Código PIX:* \`${tx.pix_code ? tx.pix_code.substring(0, 30) : ''}...\``;
         await sendTelegram(systemState.log_channel || OWNER_ID, pixMsg);
 
         return res.status(200).json({
